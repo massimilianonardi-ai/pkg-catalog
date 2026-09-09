@@ -1,0 +1,6 @@
+#!/usr/bin/env rumiai-os
+
+launcher "dbeaver" \
+  -configuration "$m_CONF_DIR/dbeaver/configuration" \
+  -data "$m_HOME_DIR/dbeaver/.workspace" \
+  "$@"
