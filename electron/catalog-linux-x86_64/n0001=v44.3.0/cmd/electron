@@ -1,0 +1,5 @@
+#!/usr/bin/env rumiai-os
+
+. "$m_LIB_DIR/sh/pkg-launch.lib.sh"
+
+launcher "electron" "$@"
