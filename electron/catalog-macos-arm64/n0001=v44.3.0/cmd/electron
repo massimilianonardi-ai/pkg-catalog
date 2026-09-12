@@ -2,4 +2,13 @@
 
 . "$m_LIB_DIR/sh/pkg-launch.lib.sh"
 
-launcher "electron" "$@"
+electron_root="${m_COMMAND_BIN%/*}"
+electron_root="${electron_root%/*}/root"
+electron_bundle="$electron_root/Electron.app"
+
+if [ "$#" -eq 0 ]
+then
+  launcher -c "electron" "/usr/bin/open" -n -W "$electron_bundle"
+else
+  launcher -c "electron" "/usr/bin/open" -n -W "$electron_bundle" --args "$@"
+fi
