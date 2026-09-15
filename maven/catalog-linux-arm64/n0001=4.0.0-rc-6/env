@@ -1,0 +1,16 @@
+maven_cmd_dir="${m_COMMAND_BIN%/*}"
+[ "$maven_cmd_dir" != "$m_COMMAND_BIN" ] || return 1
+maven_concrete_dir="${maven_cmd_dir%/*}"
+[ "$maven_concrete_dir" != "$maven_cmd_dir" ] || return 1
+
+maven_java_provider=
+IFS= read -r maven_java_provider < "$maven_concrete_dir/binding/java" || return 1
+[ -n "$maven_java_provider" ] || return 1
+
+JAVA_HOME="$m_PKG_DIR/$maven_java_provider/root"
+[ -d "$JAVA_HOME" ] && [ ! -L "$JAVA_HOME" ] || return 1
+[ -x "$JAVA_HOME/bin/java" ] || return 1
+PATH="$JAVA_HOME/bin:$PATH"
+export JAVA_HOME PATH
+
+unset maven_cmd_dir maven_concrete_dir maven_java_provider
