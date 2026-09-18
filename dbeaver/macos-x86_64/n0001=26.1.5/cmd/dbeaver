@@ -1,6 +1,6 @@
 #!/usr/bin/env m
 
-. "$m_LIB_DIR/sys/sh/pkg-launch.lib.sh"
+. "$m_LIB_DIR/sys/sh/pkg/pkg-launch.lib.sh"
 
 dbeaver_conf="$(state-path user pkg dbeaver conf)" || exit 1
 dbeaver_home="$(state-path user pkg dbeaver home)" || exit 1

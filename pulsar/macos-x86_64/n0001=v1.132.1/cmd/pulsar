@@ -1,5 +1,5 @@
 #!/usr/bin/env m
 
-. "$m_LIB_DIR/sys/sh/pkg-launch.lib.sh"
+. "$m_LIB_DIR/sys/sh/pkg/pkg-launch.lib.sh"
 
 launcher "pulsar" "$@"
