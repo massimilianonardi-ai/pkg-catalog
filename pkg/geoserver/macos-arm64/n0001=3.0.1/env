@@ -4,33 +4,6 @@ geoserver_concrete_dir="${geoserver_cmd_dir%/*}"
 [ "$geoserver_concrete_dir" != "$geoserver_cmd_dir" ] || return 1
 
 GEOSERVER_HOME="$geoserver_concrete_dir/root"
-[ -d "$GEOSERVER_HOME/data_dir" ] && [ ! -L "$GEOSERVER_HOME/data_dir" ] || return 1
+export GEOSERVER_HOME
 
-GEOSERVER_DATA_DIR="$HOME/data_dir"
-if [ ! -e "$GEOSERVER_DATA_DIR" ] && [ ! -L "$GEOSERVER_DATA_DIR" ]
-then
-  geoserver_data_tmp="$HOME/.geoserver-data-dir.$$"
-  [ ! -e "$geoserver_data_tmp" ] && [ ! -L "$geoserver_data_tmp" ] || return 1
-  if ! command -p -- cp -R -- "$GEOSERVER_HOME/data_dir" "$geoserver_data_tmp"
-  then
-    command -p -- rm -rf -- "$geoserver_data_tmp" 2>/dev/null
-    return 1
-  fi
-
-  if [ ! -e "$GEOSERVER_DATA_DIR" ] && [ ! -L "$GEOSERVER_DATA_DIR" ]
-  then
-    if ! command -p -- mv -- "$geoserver_data_tmp" "$GEOSERVER_DATA_DIR"
-    then
-      command -p -- rm -rf -- "$geoserver_data_tmp" 2>/dev/null
-      return 1
-    fi
-  else
-    command -p -- rm -rf -- "$geoserver_data_tmp" || return 1
-  fi
-fi
-
-[ -d "$GEOSERVER_DATA_DIR" ] && [ ! -L "$GEOSERVER_DATA_DIR" ] && [ -w "$GEOSERVER_DATA_DIR" ] || return 1
-
-export GEOSERVER_HOME GEOSERVER_DATA_DIR
-
-unset geoserver_cmd_dir geoserver_concrete_dir geoserver_data_tmp
+unset geoserver_cmd_dir geoserver_concrete_dir
