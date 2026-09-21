@@ -1,0 +1,9 @@
+geoserver_cmd_dir="${m_COMMAND_BIN%/*}"
+[ "$geoserver_cmd_dir" != "$m_COMMAND_BIN" ] || return 1
+geoserver_concrete_dir="${geoserver_cmd_dir%/*}"
+[ "$geoserver_concrete_dir" != "$geoserver_cmd_dir" ] || return 1
+
+GEOSERVER_HOME="$geoserver_concrete_dir/root"
+export GEOSERVER_HOME
+
+unset geoserver_cmd_dir geoserver_concrete_dir
