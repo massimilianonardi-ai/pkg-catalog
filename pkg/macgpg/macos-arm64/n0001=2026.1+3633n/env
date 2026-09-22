@@ -1,0 +1,9 @@
+macgpg_cmd_dir="${m_COMMAND_BIN%/*}"
+[ "$macgpg_cmd_dir" != "$m_COMMAND_BIN" ] || return 1
+macgpg_concrete_dir="${macgpg_cmd_dir%/*}"
+[ "$macgpg_concrete_dir" != "$macgpg_cmd_dir" ] || return 1
+
+PATH="$macgpg_concrete_dir/root/bin:$PATH"
+export PATH
+
+unset macgpg_cmd_dir macgpg_concrete_dir
