@@ -87,7 +87,7 @@ then
     esac
 
     macgpg_pinentry_new_dep="$macgpg_selector/root/$macgpg_pinentry_dep_rel"
-    [ -e "$macgpg_pinentry_new_dep" ] && [ ! -L "$macgpg_pinentry_new_dep" ] || exit 1
+    [ -e "$macgpg_pinentry_new_dep" ] || exit 1
 
     command -p -- install_name_tool \
       -change "$macgpg_pinentry_old_dep" "$macgpg_pinentry_new_dep" \
