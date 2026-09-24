@@ -142,10 +142,10 @@ then
   do
     [ -f "$macgpg_pinentry_tmp_dylib" ] || continue
     macgpg_pinentry_lib_name=${macgpg_pinentry_tmp_dylib##*/}
-    macgpg_pinentry_relocate "$macgpg_pinentry_tmp_dylib" || exit 1
     command -p -- install_name_tool \
       -id "@loader_path/$macgpg_pinentry_lib_name" \
       "$macgpg_pinentry_tmp_dylib" || exit 1
+    macgpg_pinentry_relocate "$macgpg_pinentry_tmp_dylib" || exit 1
     command -p -- codesign --force --sign - "$macgpg_pinentry_tmp_dylib" >/dev/null 2>&1 || exit 1
   done
 
