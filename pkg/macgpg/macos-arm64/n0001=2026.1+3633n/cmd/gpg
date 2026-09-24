@@ -110,7 +110,8 @@ then
 
     command -p -- otool -L "$macgpg_pinentry_relocate_file" |
       LC_ALL=C command -p -- awk '
-        $1 ~ /^\/usr\/local\/MacGPG2\/lib\// || $1 ~ /^@rpath\// { print $1 }
+        ($1 ~ /^\/usr\/local\/MacGPG2\/lib\// || $1 ~ /^@rpath\//) &&
+        !seen[$1]++ { print $1 }
       ' > "$macgpg_pinentry_deps" || return 1
 
     while IFS= read -r macgpg_pinentry_old_dep
@@ -140,7 +141,7 @@ then
       LC_ALL=C command -p -- awk '
         $1 == "cmd" && $2 == "LC_RPATH" { in_rpath = 1; next }
         in_rpath && $1 == "path" {
-          if ($2 ~ /^\/usr\/local\/MacGPG2(\/|$)/) print $2
+          if ($2 ~ /^\/usr\/local\/MacGPG2(\/|$)/ && !seen[$2]++) print $2
           in_rpath = 0
         }
       ' > "$macgpg_pinentry_deps" || return 1
