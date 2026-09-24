@@ -109,8 +109,9 @@ then
     macgpg_pinentry_relocate_file=$1
 
     command -p -- otool -L "$macgpg_pinentry_relocate_file" |
-      LC_ALL=C command -p -- awk '$1 ~ /^\/usr\/local\/MacGPG2\/lib\// { print $1 }' > "$macgpg_pinentry_deps" ||
-      return 1
+      LC_ALL=C command -p -- awk '
+        $1 ~ /^\/usr\/local\/MacGPG2\/lib\// || $1 ~ /^@rpath\// { print $1 }
+      ' > "$macgpg_pinentry_deps" || return 1
 
     while IFS= read -r macgpg_pinentry_old_dep
     do
@@ -120,14 +121,44 @@ then
         ""|.|..|*/*|*'
 '*) return 1 ;;
       esac
-      [ -f "$macgpg_pinentry_tmp_dir/$macgpg_pinentry_dep_name" ] || return 1
 
+      if [ -f "$macgpg_pinentry_tmp_dir/$macgpg_pinentry_dep_name" ]
+      then
+        command -p -- install_name_tool \
+          -change "$macgpg_pinentry_old_dep" "@loader_path/$macgpg_pinentry_dep_name" \
+          "$macgpg_pinentry_relocate_file" || return 1
+      else
+        case "$macgpg_pinentry_old_dep" in
+          /usr/local/MacGPG2/lib/*) return 1 ;;
+          @rpath/*) : ;;
+          *) return 1 ;;
+        esac
+      fi
+    done < "$macgpg_pinentry_deps"
+
+    command -p -- otool -l "$macgpg_pinentry_relocate_file" |
+      LC_ALL=C command -p -- awk '
+        $1 == "cmd" && $2 == "LC_RPATH" { in_rpath = 1; next }
+        in_rpath && $1 == "path" {
+          if ($2 ~ /^\/usr\/local\/MacGPG2(\/|$)/) print $2
+          in_rpath = 0
+        }
+      ' > "$macgpg_pinentry_deps" || return 1
+
+    while IFS= read -r macgpg_pinentry_old_rpath
+    do
+      [ -n "$macgpg_pinentry_old_rpath" ] || continue
       command -p -- install_name_tool \
-        -change "$macgpg_pinentry_old_dep" "@loader_path/$macgpg_pinentry_dep_name" \
+        -delete_rpath "$macgpg_pinentry_old_rpath" \
         "$macgpg_pinentry_relocate_file" || return 1
     done < "$macgpg_pinentry_deps"
 
     if command -p -- otool -L "$macgpg_pinentry_relocate_file" |
+       LC_ALL=C command -p -- grep -F '/usr/local/MacGPG2/' >/dev/null 2>&1
+    then
+      return 1
+    fi
+    if command -p -- otool -l "$macgpg_pinentry_relocate_file" |
        LC_ALL=C command -p -- grep -F '/usr/local/MacGPG2/' >/dev/null 2>&1
     then
       return 1
