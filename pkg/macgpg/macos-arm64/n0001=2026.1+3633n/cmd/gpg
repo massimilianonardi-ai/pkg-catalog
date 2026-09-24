@@ -15,8 +15,15 @@ esac
 macgpg_root="$macgpg_concrete_dir/root"
 macgpg_selector="$m_PKG_DIR/macgpg!$macgpg_osarch"
 [ -L "$macgpg_selector" ] || exit 1
-macgpg_direct_pinentry="$macgpg_selector/root/libexec/pinentry-mac.app/Contents/MacOS/pinentry-mac"
-[ -x "$macgpg_direct_pinentry" ] || exit 1
+macgpg_source_pinentry_app="$macgpg_selector/root/libexec/pinentry-mac.app"
+macgpg_source_pinentry="$macgpg_source_pinentry_app/Contents/MacOS/pinentry-mac"
+[ -d "$macgpg_source_pinentry_app" ] && [ ! -L "$macgpg_source_pinentry_app" ] || exit 1
+[ -x "$macgpg_source_pinentry" ] && [ ! -L "$macgpg_source_pinentry" ] || exit 1
+
+case "$macgpg_root" in
+  *'
+'*) exit 1 ;;
+esac
 
 macgpg_home="$(command -- state-path user pkg macgpg home)" || exit 1
 macgpg_run="$(command -- state-path user pkg macgpg run)" || exit 1
@@ -29,35 +36,86 @@ command -p -- mkdir -p -- "$macgpg_gnupg_home" "$macgpg_run" || exit 1
 readpathce macgpg_gnupg_home "$macgpg_gnupg_home" || exit 1
 readpathce macgpg_run "$macgpg_run" || exit 1
 
-macgpg_pinentry_wrapper="$macgpg_run/pinentry"
-macgpg_pinentry_root="$macgpg_run/pinentry-root"
-macgpg_pinentry_wrapper_tmp="$macgpg_run/.pinentry-$$"
-macgpg_pinentry_root_tmp="$macgpg_run/.pinentry-root-$$"
-[ ! -e "$macgpg_pinentry_wrapper_tmp" ] && [ ! -L "$macgpg_pinentry_wrapper_tmp" ] || exit 1
-[ ! -e "$macgpg_pinentry_root_tmp" ] && [ ! -L "$macgpg_pinentry_root_tmp" ] || exit 1
+macgpg_pinentry_app="$macgpg_run/pinentry-mac.app"
+macgpg_pinentry="$macgpg_pinentry_app/Contents/MacOS/pinentry-mac"
+macgpg_pinentry_stamp="$macgpg_run/pinentry-concrete"
+macgpg_pinentry_ready=0
 
-printf '%s\n' "$macgpg_selector/root" > "$macgpg_pinentry_root_tmp" || exit 1
-cat > "$macgpg_pinentry_wrapper_tmp" <<'EOF_PINENTRY_WRAPPER'
-#!/bin/sh
+if [ -d "$macgpg_pinentry_app" ] && [ ! -L "$macgpg_pinentry_app" ] &&
+   [ -x "$macgpg_pinentry" ] && [ ! -L "$macgpg_pinentry" ] &&
+   [ -f "$macgpg_pinentry_stamp" ] && [ ! -L "$macgpg_pinentry_stamp" ] &&
+   LC_ALL=C command -p -- grep -Fx "$macgpg_root" "$macgpg_pinentry_stamp" >/dev/null 2>&1 &&
+   ! command -p -- otool -L "$macgpg_pinentry" 2>/dev/null |
+     LC_ALL=C command -p -- grep -F '/usr/local/MacGPG2/' >/dev/null 2>&1 &&
+   command -p -- codesign --verify --strict "$macgpg_pinentry_app" >/dev/null 2>&1
+then
+  macgpg_pinentry_ready=1
+fi
 
-pinentry_dir=${0%/*}
-[ "$pinentry_dir" != "$0" ] || exit 1
-pinentry_root_file="$pinentry_dir/pinentry-root"
-[ -f "$pinentry_root_file" ] && [ ! -L "$pinentry_root_file" ] && [ -r "$pinentry_root_file" ] || exit 1
-IFS= read -r pinentry_root < "$pinentry_root_file" || exit 1
-case "$pinentry_root" in
-  /*) : ;;
-  *) exit 1 ;;
-esac
+if [ "$macgpg_pinentry_ready" -eq 0 ]
+then
+  macgpg_pinentry_tmp_app="$macgpg_run/.pinentry-mac.app-$$"
+  macgpg_pinentry_tmp="$macgpg_pinentry_tmp_app/Contents/MacOS/pinentry-mac"
+  macgpg_pinentry_tmp_stamp="$macgpg_run/.pinentry-concrete-$$"
+  macgpg_pinentry_deps="$macgpg_run/.pinentry-deps-$$"
 
-DYLD_LIBRARY_PATH="$pinentry_root/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
-export DYLD_LIBRARY_PATH
-exec "$pinentry_root/libexec/pinentry-mac.app/Contents/MacOS/pinentry-mac" "$@"
-EOF_PINENTRY_WRAPPER
-command -p -- chmod 700 "$macgpg_pinentry_wrapper_tmp" || exit 1
-command -p -- chmod 600 "$macgpg_pinentry_root_tmp" || exit 1
-command -p -- mv -- "$macgpg_pinentry_root_tmp" "$macgpg_pinentry_root" || exit 1
-command -p -- mv -- "$macgpg_pinentry_wrapper_tmp" "$macgpg_pinentry_wrapper" || exit 1
+  [ ! -e "$macgpg_pinentry_tmp_app" ] && [ ! -L "$macgpg_pinentry_tmp_app" ] || exit 1
+  [ ! -e "$macgpg_pinentry_tmp_stamp" ] && [ ! -L "$macgpg_pinentry_tmp_stamp" ] || exit 1
+  [ ! -e "$macgpg_pinentry_deps" ] && [ ! -L "$macgpg_pinentry_deps" ] || exit 1
+
+  command -p -- ditto "$macgpg_source_pinentry_app" "$macgpg_pinentry_tmp_app" || exit 1
+  [ -x "$macgpg_pinentry_tmp" ] && [ ! -L "$macgpg_pinentry_tmp" ] || exit 1
+
+  command -p -- otool -L "$macgpg_pinentry_tmp" |
+    LC_ALL=C command -p -- awk '$1 ~ /^\/usr\/local\/MacGPG2\// { print $1 }' > "$macgpg_pinentry_deps" ||
+    exit 1
+
+  while IFS= read -r macgpg_pinentry_old_dep
+  do
+    [ -n "$macgpg_pinentry_old_dep" ] || continue
+    case "$macgpg_pinentry_old_dep" in
+      /usr/local/MacGPG2/*)
+        macgpg_pinentry_dep_rel=${macgpg_pinentry_old_dep#/usr/local/MacGPG2/}
+        ;;
+      *)
+        exit 1
+        ;;
+    esac
+    case "$macgpg_pinentry_dep_rel" in
+      ""|/*|*'
+'*) exit 1 ;;
+    esac
+
+    macgpg_pinentry_new_dep="$macgpg_selector/root/$macgpg_pinentry_dep_rel"
+    [ -e "$macgpg_pinentry_new_dep" ] && [ ! -L "$macgpg_pinentry_new_dep" ] || exit 1
+
+    command -p -- install_name_tool \
+      -change "$macgpg_pinentry_old_dep" "$macgpg_pinentry_new_dep" \
+      "$macgpg_pinentry_tmp" || exit 1
+  done < "$macgpg_pinentry_deps"
+
+  command -p -- rm -f -- "$macgpg_pinentry_deps" || exit 1
+
+  if command -p -- otool -L "$macgpg_pinentry_tmp" |
+     LC_ALL=C command -p -- grep -F '/usr/local/MacGPG2/' >/dev/null 2>&1
+  then
+    exit 1
+  fi
+
+  command -p -- codesign --force --sign - "$macgpg_pinentry_tmp_app" >/dev/null 2>&1 || exit 1
+  command -p -- codesign --verify --strict "$macgpg_pinentry_tmp_app" >/dev/null 2>&1 || exit 1
+  printf '%s\n' "$macgpg_root" > "$macgpg_pinentry_tmp_stamp" || exit 1
+
+  command -p -- rm -rf -- "$macgpg_pinentry_app" || exit 1
+  command -p -- rm -f -- "$macgpg_pinentry_stamp" || exit 1
+  command -p -- mv -- "$macgpg_pinentry_tmp_app" "$macgpg_pinentry_app" || exit 1
+  command -p -- mv -- "$macgpg_pinentry_tmp_stamp" "$macgpg_pinentry_stamp" || exit 1
+fi
+
+[ -x "$macgpg_pinentry" ] && [ ! -L "$macgpg_pinentry" ] || exit 1
+
+macgpg_previous_wrapper="$macgpg_run/pinentry"
+macgpg_previous_root="$macgpg_run/pinentry-root"
 
 macgpg_agent_conf="$macgpg_gnupg_home/gpg-agent.conf"
 macgpg_agent_conf_changed=0
@@ -74,7 +132,7 @@ fi
 [ -f "$macgpg_agent_conf" ] && [ ! -L "$macgpg_agent_conf" ] && [ -r "$macgpg_agent_conf" ] && [ -w "$macgpg_agent_conf" ] || exit 1
 
 macgpg_pinentry_escaped="$(
-  printf '%s' "$macgpg_pinentry_wrapper" |
+  printf '%s' "$macgpg_pinentry" |
     command -p -- sed 's/\\/\\\\/g; s/"/\\"/g'
 )" || exit 1
 macgpg_pinentry_line="pinentry-program \"$macgpg_pinentry_escaped\""
@@ -84,17 +142,20 @@ macgpg_direct_pinentry_suffix="/pkg/macgpg!$macgpg_osarch/root/libexec/pinentry-
 if LC_ALL=C command -p -- grep -E '^[[:space:]]*pinentry-program[[:space:]]+' "$macgpg_agent_conf" >/dev/null 2>&1
 then
   if LC_ALL=C command -p -- grep -F "$macgpg_old_pinentry" "$macgpg_agent_conf" >/dev/null 2>&1 ||
-     LC_ALL=C command -p -- grep -F "$macgpg_direct_pinentry_suffix" "$macgpg_agent_conf" >/dev/null 2>&1
+     LC_ALL=C command -p -- grep -F "$macgpg_direct_pinentry_suffix" "$macgpg_agent_conf" >/dev/null 2>&1 ||
+     LC_ALL=C command -p -- grep -F "$macgpg_previous_wrapper" "$macgpg_agent_conf" >/dev/null 2>&1
   then
     macgpg_agent_conf_tmp="$macgpg_agent_conf.m-new-$$"
     [ ! -e "$macgpg_agent_conf_tmp" ] && [ ! -L "$macgpg_agent_conf_tmp" ] || exit 1
     MACGPG_PINENTRY_LINE="$macgpg_pinentry_line" \
     MACGPG_OLD_PINENTRY="$macgpg_old_pinentry" \
     MACGPG_DIRECT_SUFFIX="$macgpg_direct_pinentry_suffix" \
+    MACGPG_PREVIOUS_WRAPPER="$macgpg_previous_wrapper" \
       command -p -- awk '
         /^[[:space:]]*pinentry-program[[:space:]]+/ &&
         (index($0, ENVIRON["MACGPG_OLD_PINENTRY"]) ||
-         index($0, ENVIRON["MACGPG_DIRECT_SUFFIX"])) {
+         index($0, ENVIRON["MACGPG_DIRECT_SUFFIX"]) ||
+         index($0, ENVIRON["MACGPG_PREVIOUS_WRAPPER"])) {
           print ENVIRON["MACGPG_PINENTRY_LINE"]
           next
         }
@@ -110,6 +171,8 @@ else
   printf '%s\n' "$macgpg_pinentry_line" >> "$macgpg_agent_conf" || exit 1
   macgpg_agent_conf_changed=1
 fi
+
+command -p -- rm -f -- "$macgpg_previous_wrapper" "$macgpg_previous_root" || exit 1
 
 if [ "$macgpg_agent_conf_changed" -eq 1 ]
 then
