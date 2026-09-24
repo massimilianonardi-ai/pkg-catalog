@@ -64,6 +64,11 @@ macgpg_pinentry_validate()
     then
       return 1
     fi
+    if command -p -- otool -l "$macgpg_pinentry_validate_file" 2>/dev/null |
+       LC_ALL=C command -p -- grep -F '/usr/local/MacGPG2/' >/dev/null 2>&1
+    then
+      return 1
+    fi
   done
 
   return 0
