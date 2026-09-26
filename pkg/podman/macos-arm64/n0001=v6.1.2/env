@@ -1,0 +1,12 @@
+podman_cmd_dir="${m_COMMAND_BIN%/*}"
+[ "$podman_cmd_dir" != "$m_COMMAND_BIN" ] || return 1
+podman_concrete_dir="${podman_cmd_dir%/*}"
+[ "$podman_concrete_dir" != "$podman_cmd_dir" ] || return 1
+podman_bin_dir="$podman_concrete_dir/root/bin"
+[ -d "$podman_bin_dir" ] && [ ! -L "$podman_bin_dir" ] || return 1
+
+CONTAINERS_HELPER_BINARY_DIR="$podman_bin_dir"
+PATH="$podman_bin_dir:$PATH"
+export CONTAINERS_HELPER_BINARY_DIR PATH
+
+unset podman_cmd_dir podman_concrete_dir podman_bin_dir
