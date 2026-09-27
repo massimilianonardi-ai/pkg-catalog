@@ -1,0 +1,86 @@
+#!/usr/bin/env m
+
+loadsyslib "pkg/pkg-launch"
+
+_python_env_absolute()
+{
+  [ "$#" -eq 1 ] || return 2
+  case "$1" in
+    /*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+_python_env_version_valid()
+{
+  [ "$#" -eq 1 ] || return 2
+  case "$1" in
+    "" | *[!0123456789.]* | .* | *. | *..*) return 1 ;;
+  esac
+  case "$1" in
+    *.*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+_python_env_recognized()
+{
+  [ "$#" -eq 1 ] || return 2
+  [ -d "$1" ] && [ ! -L "$1" ] &&
+  [ -d "$1/conda-meta" ] && [ ! -L "$1/conda-meta" ] &&
+  [ -f "$1/conda-meta/history" ] && [ ! -L "$1/conda-meta/history" ]
+}
+
+[ "$#" -ge 1 ] || exit 2
+python_env_action=$1
+
+case "$python_env_action" in
+  create)
+    [ "$#" -eq 3 ] || exit 2
+    python_env_environment=$2
+    python_env_version=$3
+    _python_env_absolute "$python_env_environment" || exit 2
+    _python_env_version_valid "$python_env_version" || exit 2
+    [ ! -e "$python_env_environment" ] && [ ! -L "$python_env_environment" ] || exit 1
+
+    (
+      launcher "micromamba" create -y -q -p "$python_env_environment" -c conda-forge "python=$python_env_version" pip
+    ) || exit 1
+    _python_env_recognized "$python_env_environment" || exit 1
+    (
+      launcher "micromamba" run -p "$python_env_environment" -- python -m pip --version
+    ) >/dev/null || exit 1
+    ;;
+
+  run)
+    [ "$#" -ge 4 ] || exit 2
+    python_env_environment=$2
+    [ "$3" = -- ] || exit 2
+    shift 3
+    [ "$#" -ge 1 ] || exit 2
+    _python_env_absolute "$python_env_environment" || exit 2
+    _python_env_recognized "$python_env_environment" || exit 1
+
+    launcher "micromamba" run -p "$python_env_environment" -- "$@"
+    ;;
+
+  remove)
+    [ "$#" -eq 2 ] || exit 2
+    python_env_environment=$2
+    _python_env_absolute "$python_env_environment" || exit 2
+    _python_env_recognized "$python_env_environment" || exit 1
+
+    (
+      launcher "micromamba" env remove -y -p "$python_env_environment"
+    ) || exit 1
+    if [ -d "$python_env_environment" ] && [ ! -L "$python_env_environment" ]
+    then
+      command -p -- rmdir -- "$python_env_environment" 2>/dev/null || :
+    fi
+    [ ! -e "$python_env_environment" ] && [ ! -L "$python_env_environment" ] || exit 1
+    ;;
+
+  *)
+    exit 2
+    ;;
+esac
