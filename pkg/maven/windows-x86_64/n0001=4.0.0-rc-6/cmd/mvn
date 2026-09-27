@@ -1,5 +1,5 @@
 #!/usr/bin/env m
 
-. "$m_LIB_DIR/sys/sh/pkg/pkg-launch.lib.sh"
+loadsyslib "pkg/pkg-launch"
 
 launcher "maven" "$@"
