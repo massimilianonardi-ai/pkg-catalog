@@ -1,0 +1,5 @@
+#!/usr/bin/env m
+
+loadsyslib "pkg/pkg-launch"
+
+launcher "chromium" "$@"
