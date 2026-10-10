@@ -1,6 +1,12 @@
 name: Sync GitHub release histories
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - sync-version-history.mjs
+      - .github/workflows/sync-version-history.yml
   schedule:
     - cron: "17 2 * * *"
   workflow_dispatch:
@@ -20,8 +26,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Validate reconciler syntax
+        run: node --check sync-version-history.mjs
       - name: Reconcile catalog with upstream releases
-        run: node sync-version-history.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(date -u +%u)" -eq 7 ]; then
+            node sync-version-history.mjs --full
+          else
+            node sync-version-history.mjs
+          fi
       - name: Publish changes
         run: |
           git add -- pkg
