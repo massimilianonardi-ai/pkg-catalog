@@ -7,9 +7,10 @@ const changes = [];
 const full = process.argv.length === 3 && process.argv[2] === "--full";
 if (process.argv.length > (full ? 3 : 2)) throw new Error("usage: node sync-version-history.mjs [--full]");
 
-async function history(owner, repository, known) {
+async function history(owner, repository, known, anchor) {
   const identity = owner + "/" + repository;
-  const key = identity + ":" + (full ? "full" : known.join(","));
+  const key = identity + ":" + (full ? "full" : "incremental") + ":" + anchor + ":" + known.join(",");
+  const stopTag = full ? (known[0] || anchor) : (known[known.length - 1] || anchor);
   if (histories.has(key)) return histories.get(key);
   const releases = [];
   let overlapped = false;
@@ -29,8 +30,8 @@ async function history(owner, repository, known) {
     const pageItems = await response.json();
     if (!Array.isArray(pageItems)) throw new Error(key + ": invalid release response");
     releases.push(...pageItems);
-    if (!full && known.length && pageItems.some(x => x.tag_name === known[known.length - 1])) {
-      overlapped = true;
+    if (pageItems.some(x => x.tag_name === stopTag && !x.draft && !x.prerelease)) {
+      overlapped = !full && known.length > 0;
       break;
     }
     if (pageItems.length < 100) break;
@@ -53,6 +54,12 @@ async function history(owner, repository, known) {
     }
   }
   let tags = sorted.map(x => x.tag);
+  if (!overlapped) {
+    const first = known[0] || anchor;
+    const minimum = tags.indexOf(first);
+    if (minimum < 0) throw new Error(identity + ": historical anchor not found: " + first);
+    tags = tags.slice(minimum);
+  }
   if (overlapped) {
     const boundary = tags.indexOf(known[known.length - 1]);
     if (boundary < 0) throw new Error(identity + ": known boundary was not stable");
@@ -93,7 +100,12 @@ for (const pkg of await readdir("pkg", { withFileTypes: true })) {
         known.some(v => !versionPattern.test(v)))) {
       throw new Error(file + ": invalid saved history");
     }
-    const live = await history(owner, repository, known);
+    const rangeNames = await readdir(join("pkg", pkg.name, stream.name));
+    const anchors = rangeNames.filter(name => /^n0001=/.test(name));
+    if (anchors.length !== 1 || !versionPattern.test(anchors[0].slice(6))) {
+      throw new Error(file + ": missing or invalid first range anchor");
+    }
+    const live = await history(owner, repository, known, anchors[0].slice(6));
     let cursor = 0;
     for (const tag of known) {
       const position = live.indexOf(tag, cursor);
