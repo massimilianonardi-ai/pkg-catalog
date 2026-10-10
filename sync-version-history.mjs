@@ -94,8 +94,9 @@ for (const pkg of await readdir("pkg", { withFileTypes: true })) {
     const repository = (await readFile(join(repositoryDir, "repository"), "utf8")).trim();
     const file = join(repositoryDir, "versions");
     const old = await optionalRead(file);
-    const known = old === null ? [] : old.trimEnd().split("\n");
-    if (old !== null && (known.length === 0 ||
+    // Preserve the on-disk line protocol; malformed history cannot be repaired silently.
+    const known = old === null ? [] : old.endsWith("\n") ? old.slice(0, -1).split("\n") : [];
+    if (old !== null && (!old.endsWith("\n") || known.length === 0 ||
         new Set(known).size !== known.length ||
         known.some(v => !versionPattern.test(v)))) {
       throw new Error(file + ": invalid saved history");
