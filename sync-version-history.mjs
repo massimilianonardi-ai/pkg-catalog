@@ -7,10 +7,11 @@ const changes = [];
 const full = process.argv.length === 3 && process.argv[2] === "--full";
 if (process.argv.length > (full ? 3 : 2)) throw new Error("usage: node sync-version-history.mjs [--full]");
 
-async function history(owner, repository, known, anchor) {
+async function history(owner, repository, known, anchor, forceFull = false) {
   const identity = owner + "/" + repository;
-  const key = identity + ":" + (full ? "full" : "incremental") + ":" + anchor + ":" + known.join(",");
-  const stopTag = full ? (known[0] || anchor) : (known[known.length - 1] || anchor);
+  const scanFull = full || forceFull;
+  const key = identity + ":" + (scanFull ? "full" : "incremental") + ":" + anchor + ":" + known.join(",");
+  const stopTag = scanFull ? (known[0] || anchor) : (known[known.length - 1] || anchor);
   if (histories.has(key)) return histories.get(key);
   const releases = [];
   let overlapped = false;
@@ -31,7 +32,7 @@ async function history(owner, repository, known, anchor) {
     if (!Array.isArray(pageItems)) throw new Error(key + ": invalid release response");
     releases.push(...pageItems);
     if (pageItems.some(x => x.tag_name === stopTag && !x.draft && !x.prerelease)) {
-      overlapped = !full && known.length > 0;
+      overlapped = !scanFull && known.length > 0;
       break;
     }
     if (pageItems.length < 100) break;
@@ -67,11 +68,11 @@ async function history(owner, repository, known, anchor) {
     let cursor = 0;
     for (const tag of oldPrefix) {
       const position = known.indexOf(tag, cursor);
-      if (position < 0) throw new Error(identity + ": old releases changed order; use full reconciliation");
+      if (position < 0) return history(owner, repository, known, anchor, true);
       cursor = position + 1;
     }
     if (tags.slice(0, boundary).some(tag => !known.includes(tag))) {
-      throw new Error(identity + ": inserted older release; use full reconciliation");
+      return history(owner, repository, known, anchor, true);
     }
     tags = known.concat(tags.slice(boundary + 1).filter(tag => !known.includes(tag)));
   }
