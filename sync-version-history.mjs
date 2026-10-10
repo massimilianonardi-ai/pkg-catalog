@@ -1,0 +1,92 @@
+import { readdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
+const versionPattern = /^[A-Za-z0-9][A-Za-z0-9._+~-]*$/;
+const histories = new Map();
+const changes = [];
+
+async function history(owner, repository) {
+  const key = owner + "/" + repository;
+  if (histories.has(key)) return histories.get(key);
+  const releases = [];
+  for (let page = 1; ; ++page) {
+    const url = "https://api.github.com/repos/" + encodeURIComponent(owner) +
+      "/" + encodeURIComponent(repository) + "/releases?per_page=100&page=" + page;
+    const response = await fetch(url, {
+      headers: { Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2026-03-10",
+        "User-Agent": "rumiai-pkg-catalog-sync" }
+    });
+    if (!response.ok) {
+      throw new Error(key + ": release discovery failed: HTTP " + response.status);
+    }
+    const pageItems = await response.json();
+    if (!Array.isArray(pageItems)) throw new Error(key + ": invalid release response");
+    releases.push(...pageItems);
+    if (pageItems.length < 100) break;
+  }
+  const seen = new Set();
+  const sorted = releases.filter(x => !x.draft && !x.prerelease).map(x => {
+    if (!versionPattern.test(x.tag_name) ||
+        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(x.created_at) ||
+        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(x.published_at) ||
+        seen.has(x.tag_name)) throw new Error(key + ": invalid stable release");
+    seen.add(x.tag_name);
+    return { tag: x.tag_name, created: x.created_at, published: x.published_at };
+  }).sort((a,b) => a.created < b.created ? -1 : a.created > b.created ? 1 :
+    a.published < b.published ? -1 : a.published > b.published ? 1 : 0);
+  if (!sorted.length) throw new Error(key + ": no stable releases");
+  for (let i = 1; i < sorted.length; ++i) {
+    if (sorted[i].created === sorted[i-1].created &&
+        sorted[i].published === sorted[i-1].published) {
+      throw new Error(key + ": ambiguous chronology");
+    }
+  }
+  const tags = sorted.map(x => x.tag);
+  histories.set(key, tags);
+  return tags;
+}
+
+async function optionalRead(path) {
+  try { return await readFile(path, "utf8"); }
+  catch (error) { if (error.code === "ENOENT") return null; throw error; }
+}
+
+for (const pkg of await readdir("pkg", { withFileTypes: true })) {
+  if (!pkg.isDirectory()) continue;
+  for (const stream of await readdir(join("pkg", pkg.name), { withFileTypes: true })) {
+    if (!stream.isDirectory()) continue;
+    const repositoryDir = join("pkg", pkg.name, stream.name, "repository");
+    if (await optionalRead(join(repositoryDir, "type")) !== "github\n") continue;
+    const owner = (await readFile(join(repositoryDir, "owner"), "utf8")).trim();
+    const repository = (await readFile(join(repositoryDir, "repository"), "utf8")).trim();
+    const live = await history(owner, repository);
+    const file = join(repositoryDir, "versions");
+    const old = await optionalRead(file);
+    const known = old === null ? [] : old.trimEnd().split("\n");
+    if (old !== null && (known.length === 0 ||
+        new Set(known).size !== known.length ||
+        known.some(v => !versionPattern.test(v)))) {
+      throw new Error(file + ": invalid saved history");
+    }
+    let cursor = 0;
+    for (const tag of known) {
+      const position = live.indexOf(tag, cursor);
+      if (position < 0) {
+        throw new Error(file + ": known version " + tag +
+          " is absent or reordered upstream; manual reconciliation required");
+      }
+      cursor = position + 1;
+    }
+    const next = live.join("\n") + "\n";
+    if (old !== next) changes.push({ file, next });
+  }
+}
+
+// A failed upstream inspection changes no catalog files.
+for (const { file, next } of changes) {
+  await writeFile(file, next, "utf8");
+  process.stdout.write("Updated " + file + "\n");
+}
+process.stdout.write("Repositories checked: " + histories.size +
+  "; histories updated: " + changes.length + "\n");
