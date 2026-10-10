@@ -16,11 +16,13 @@ async function history(owner, repository, known) {
   for (let page = 1; ; ++page) {
     const url = "https://api.github.com/repos/" + encodeURIComponent(owner) +
       "/" + encodeURIComponent(repository) + "/releases?per_page=100&page=" + page;
-    const response = await fetch(url, {
-      headers: { Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2026-03-10",
-        "User-Agent": "rumiai-pkg-catalog-sync" }
-    });
+    const headers = {
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2026-03-10",
+      "User-Agent": "rumiai-pkg-catalog-sync"
+    };
+    if (process.env.GITHUB_TOKEN) headers.Authorization = "Bearer " + process.env.GITHUB_TOKEN;
+    const response = await fetch(url, { headers });
     if (!response.ok) {
       throw new Error(key + ": release discovery failed: HTTP " + response.status);
     }
