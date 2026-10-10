@@ -4,11 +4,15 @@ import { join } from "node:path";
 const versionPattern = /^[A-Za-z0-9][A-Za-z0-9._+~-]*$/;
 const histories = new Map();
 const changes = [];
+const full = process.argv.length === 3 && process.argv[2] === "--full";
+if (process.argv.length > (full ? 3 : 2)) throw new Error("usage: node sync-version-history.mjs [--full]");
 
-async function history(owner, repository) {
-  const key = owner + "/" + repository;
+async function history(owner, repository, known) {
+  const identity = owner + "/" + repository;
+  const key = identity + ":" + (full ? "full" : known.join(","));
   if (histories.has(key)) return histories.get(key);
   const releases = [];
+  let overlapped = false;
   for (let page = 1; ; ++page) {
     const url = "https://api.github.com/repos/" + encodeURIComponent(owner) +
       "/" + encodeURIComponent(repository) + "/releases?per_page=100&page=" + page;
@@ -23,6 +27,10 @@ async function history(owner, repository) {
     const pageItems = await response.json();
     if (!Array.isArray(pageItems)) throw new Error(key + ": invalid release response");
     releases.push(...pageItems);
+    if (!full && known.length && pageItems.some(x => x.tag_name === known[known.length - 1])) {
+      overlapped = true;
+      break;
+    }
     if (pageItems.length < 100) break;
   }
   const seen = new Set();
@@ -42,7 +50,22 @@ async function history(owner, repository) {
       throw new Error(key + ": ambiguous chronology");
     }
   }
-  const tags = sorted.map(x => x.tag);
+  let tags = sorted.map(x => x.tag);
+  if (overlapped) {
+    const boundary = tags.indexOf(known[known.length - 1]);
+    if (boundary < 0) throw new Error(identity + ": known boundary was not stable");
+    const oldPrefix = tags.slice(0, boundary + 1).filter(tag => known.includes(tag));
+    let cursor = 0;
+    for (const tag of oldPrefix) {
+      const position = known.indexOf(tag, cursor);
+      if (position < 0) throw new Error(identity + ": old releases changed order; use full reconciliation");
+      cursor = position + 1;
+    }
+    if (tags.slice(0, boundary).some(tag => !known.includes(tag))) {
+      throw new Error(identity + ": inserted older release; use full reconciliation");
+    }
+    tags = known.concat(tags.slice(boundary + 1).filter(tag => !known.includes(tag)));
+  }
   histories.set(key, tags);
   return tags;
 }
@@ -60,7 +83,6 @@ for (const pkg of await readdir("pkg", { withFileTypes: true })) {
     if (await optionalRead(join(repositoryDir, "type")) !== "github\n") continue;
     const owner = (await readFile(join(repositoryDir, "owner"), "utf8")).trim();
     const repository = (await readFile(join(repositoryDir, "repository"), "utf8")).trim();
-    const live = await history(owner, repository);
     const file = join(repositoryDir, "versions");
     const old = await optionalRead(file);
     const known = old === null ? [] : old.trimEnd().split("\n");
@@ -69,6 +91,7 @@ for (const pkg of await readdir("pkg", { withFileTypes: true })) {
         known.some(v => !versionPattern.test(v)))) {
       throw new Error(file + ": invalid saved history");
     }
+    const live = await history(owner, repository, known);
     let cursor = 0;
     for (const tag of known) {
       const position = live.indexOf(tag, cursor);
@@ -88,5 +111,5 @@ for (const { file, next } of changes) {
   await writeFile(file, next, "utf8");
   process.stdout.write("Updated " + file + "\n");
 }
-process.stdout.write("Repositories checked: " + histories.size +
+process.stdout.write("Mode: " + (full ? "full" : "incremental") + "; repositories checked: " + histories.size +
   "; histories updated: " + changes.length + "\n");
