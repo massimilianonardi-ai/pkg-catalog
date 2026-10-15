@@ -37,11 +37,11 @@ jobs:
           ./rumiai-os/m pkg default nodejs
           ./rumiai-os/m pkg install electron-web-control@v0.1.6
           ./rumiai-os/m pkg provider default web-control electron-web-control@v0.1.6
-          ./rumiai-os/m pkg requirement resolve web-control '>=2' '<4'
+          ./rumiai-os/m pkg requirement resolve web-control '>2'
           ./rumiai-os/m pkg requirement list amazon-wishlist-monitor@v0.3.0 > "$RUNNER_TEMP/monitor-req"
           ./rumiai-os/m pkg requirement list amazon-wishlist-extract@v0.1.0 > "$RUNNER_TEMP/extract-req"
-          grep -Fx 'web-control >=2 <4' "$RUNNER_TEMP/monitor-req"
-          grep -Fx 'web-control >=2 <4' "$RUNNER_TEMP/extract-req"
+          grep -Fx 'web-control >2' "$RUNNER_TEMP/monitor-req"
+          grep -Fx 'web-control >2' "$RUNNER_TEMP/extract-req"
           ./rumiai-os/m pkg install amazon-wishlist-monitor@v0.3.0
           ./rumiai-os/m pkg default amazon-wishlist-monitor@v0.3.0
           ./rumiai-os/m pkg install amazon-wishlist-extract@v0.1.0
