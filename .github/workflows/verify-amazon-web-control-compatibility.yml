@@ -1,0 +1,60 @@
+name: Verify Amazon wishlist web-control compatibility
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pkg/amazon-wishlist-extract/**/dependency'
+      - 'pkg/amazon-wishlist-monitor/**/dependency'
+      - '.github/workflows/verify-amazon-web-control-compatibility.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: web-control 3 / \${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: \${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/rumiai-os
+          ref: 0d83d044222f271b99d873a403629e7df34ea1c8
+          path: rumiai-os
+      - name: Install and resolve real level-3 provider
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./rumiai-os/m osarch update
+          ./rumiai-os/m pkg install nodejs
+          ./rumiai-os/m pkg default nodejs
+          ./rumiai-os/m pkg install electron-web-control@v0.1.6
+          ./rumiai-os/m pkg provider default web-control electron-web-control@v0.1.6
+          ./rumiai-os/m pkg requirement resolve web-control '>=2' '<4'
+          ./rumiai-os/m pkg requirement list amazon-wishlist-monitor@v0.3.0 > "$RUNNER_TEMP/monitor-req"
+          ./rumiai-os/m pkg requirement list amazon-wishlist-extract@v0.1.0 > "$RUNNER_TEMP/extract-req"
+          grep -Fx 'web-control >=2 <4' "$RUNNER_TEMP/monitor-req"
+          grep -Fx 'web-control >=2 <4' "$RUNNER_TEMP/extract-req"
+          ./rumiai-os/m pkg install amazon-wishlist-monitor@v0.3.0
+          ./rumiai-os/m pkg default amazon-wishlist-monitor@v0.3.0
+          ./rumiai-os/m pkg install amazon-wishlist-extract@v0.1.0
+          test -L rumiai-os/bin/ext/amazon-wishlist-monitor
+          cat > "$RUNNER_TEMP/extract-fixture" <<'STUB'
+          #!/bin/sh
+          cat <<'JSON'
+          {"checkedAt":"2026-10-15T12:00:00.000Z","wishlistUrl":"https://www.amazon.it/hz/wishlist/ls/EXAMPLE","complete":true,"blocked":false,"failure":null,"completionReason":"stable-bottom","itemCount":1,"items":[{"asin":"B012345678","title":"Example","url":"https://www.amazon.it/dp/B012345678","price":{"verified":true,"currency":"EUR","cents":1500},"purchaseAction":"add-to-cart"}]}
+          JSON
+          STUB
+          chmod 700 "$RUNNER_TEMP/extract-fixture"
+          AMAZON_WISHLIST_EXTRACT_COMMAND="$RUNNER_TEMP/extract-fixture" ./rumiai-os/m amazon-wishlist-monitor 'https://www.amazon.it/hz/wishlist/ls/EXAMPLE' "$RUNNER_TEMP/watch-state.json"
+          test -s "$RUNNER_TEMP/watch-state.json"
+          test -s "$RUNNER_TEMP/watch-state.html"
+          grep -F 'Amazon Price Monitor' "$RUNNER_TEMP/watch-state.html" >/dev/null
+          echo 'Amazon wishlist consumer compatibility with web-control 3: PASS'
