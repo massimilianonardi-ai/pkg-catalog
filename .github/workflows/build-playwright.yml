@@ -1,0 +1,60 @@
+name: Build Playwright package
+
+on:
+  push:
+    paths:
+      - "pkg/playwright/**"
+      - ".github/workflows/build-playwright.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+
+      - name: Build version-pinned package
+        shell: sh
+        run: |
+          set -eu
+          version=1.63.0
+          root="$RUNNER_TEMP/playwright-package"
+          mkdir -p "$root/bin"
+          cd "$root"
+          npm init -y >/dev/null
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install \
+            --ignore-scripts --omit=dev --no-audit --no-fund --save-exact \
+            "playwright@$version"
+          test -f "$root/node_modules/playwright/cli.js"
+          test -f "$root/node_modules/playwright-core/package.json"
+          node -e 'const p=require("./node_modules/playwright/package.json"); const c=require("./node_modules/playwright-core/package.json"); if(p.version!=="1.63.0"||c.version!=="1.63.0") process.exit(1);'
+          printf '%s\n' '#!/usr/bin/env node' "require('../node_modules/playwright/cli.js');" > "$root/bin/playwright"
+          chmod 755 "$root/bin/playwright"
+          artifact="$RUNNER_TEMP/playwright-v$version-all.tar.gz"
+          tar -czf "$artifact" -C "$root" .
+          test -s "$artifact"
+
+      - name: Publish versioned release asset
+        shell: sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          if gh release view v1.63.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
+          then
+            echo "Release v1.63.0 already exists; refusing to replace immutable contents."
+            exit 0
+          fi
+          gh release create v1.63.0 \
+            "$RUNNER_TEMP/playwright-v1.63.0-all.tar.gz" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Playwright v1.63.0 (m package)" \
+            --notes "Version-pinned Playwright and playwright-core npm modules. Browser binaries are installed separately with playwright install chromium." \
+            --latest
