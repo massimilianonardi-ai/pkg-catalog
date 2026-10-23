@@ -2,4 +2,4 @@
 
 loadsyslib "pkg/pkg-launch"
 
-launcher "chrome" "$@"
+launcher_nss "chrome" "$@"
