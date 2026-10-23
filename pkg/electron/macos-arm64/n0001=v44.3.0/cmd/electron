@@ -1,5 +1,11 @@
-#!/usr/bin/env m
+#!/bin/sh
 
-loadsyslib "pkg/pkg-launch"
+[ -n "${m_ROOT:-}" ] || {
+  printf '%s\n' 'pkg command: m environment not initialized' >&2
+  exit 1
+}
+
+. "$m_LIB_DIR/sys/sh/core.lib.sh" || exit 2
+loadsyslib "pkg/pkg-launch" || exit 3
 
 launcher "electron" "$@"
