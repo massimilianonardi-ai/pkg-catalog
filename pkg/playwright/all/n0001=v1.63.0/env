@@ -1,8 +1,3 @@
-playwright_cmd_dir="${m_COMMAND_BIN%/*}"
-[ "$playwright_cmd_dir" != "$m_COMMAND_BIN" ] || return 1
-playwright_concrete_dir="${playwright_cmd_dir%/*}"
-[ "$playwright_concrete_dir" != "$playwright_cmd_dir" ] || return 1
-NODE_PATH="$playwright_concrete_dir/root/node_modules${NODE_PATH:+:$NODE_PATH}"
+NODE_PATH="$pkg_launch_root/node_modules${NODE_PATH:+:$NODE_PATH}"
 PLAYWRIGHT_BROWSERS_PATH="$HOME/.cache/ms-playwright"
 export NODE_PATH PLAYWRIGHT_BROWSERS_PATH
-unset playwright_cmd_dir playwright_concrete_dir
