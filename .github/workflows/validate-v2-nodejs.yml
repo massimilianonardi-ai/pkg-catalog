@@ -40,7 +40,7 @@ jobs:
           mkdir -p -- "$conf"
           printf '%s\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
           ./m-source/m pkg install nodejs@v26.8.2
-          osarch=$(./m-source/m sh -c 'printf "%s" "$m_OSARCH"')
+          osarch=$(./m-source/m sh -ec '. "$m_LIB_DIR/sys/sh/core.lib.sh"; loadsyslib "osarch"; printf "%s" "$m_OSARCH"')
           concrete=$(./m-source/m pkg default nodejs)
           [ "$concrete" = "nodejs@v26.8.2!$osarch" ]
           [ "$(cat "m-source/pkg/$concrete/schema")" = v2 ]
