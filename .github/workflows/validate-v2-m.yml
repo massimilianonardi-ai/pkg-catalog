@@ -89,3 +89,30 @@ jobs:
           '
           echo 'PASS: real public v2 jq install, direct/wrapped commands and context'
           CONCRETE="$concrete" ./m-source/m sh m-source/.github/scripts/pkg-v2-coexistence-test.sh
+
+  v2-libraries:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - name: Checkout pinned v2 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m
+          ref: f9787c18245d211798d36e6828c7a24bd54a8f14
+          path: m-source
+          persist-credentials: false
+      - name: Set up Java for real JAR consumer
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Integrate library-only v2 package and load sh/JAR exports
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m osarch update
+          ./m-source/m sh m-source/.github/scripts/pkg-v2-libraries-test.sh
