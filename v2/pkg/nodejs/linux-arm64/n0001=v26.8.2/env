@@ -1,0 +1,2 @@
+PATH="$pkg_launch_root/bin:$PATH"
+export PATH

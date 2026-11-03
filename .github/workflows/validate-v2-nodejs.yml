@@ -13,7 +13,11 @@ permissions:
 
 jobs:
   real-nodejs-provider:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     steps:
       - name: Checkout catalog
@@ -36,8 +40,9 @@ jobs:
           mkdir -p -- "$conf"
           printf '%s\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
           ./m-source/m pkg install nodejs@v26.8.2
+          osarch=$(./m-source/m sh -c 'printf "%s" "$m_OSARCH"')
           concrete=$(./m-source/m pkg default nodejs)
-          [ "$concrete" = 'nodejs@v26.8.2!linux-x86_64' ]
+          [ "$concrete" = "nodejs@v26.8.2!$osarch" ]
           [ "$(cat "m-source/pkg/$concrete/schema")" = v2 ]
           [ "$(readlink "m-source/pkg/$concrete/link/bin/node")" = ../../cmd/node ]
           [ "$(readlink "m-source/pkg/$concrete/link/target/node")" = ../../root/bin/node ]
@@ -54,8 +59,8 @@ jobs:
             context
           '
           ./m-source/m pkg default -u nodejs
-          ./m-source/m pkg provider default nodejs 'nodejs@v26.8.2!linux-x86_64'
+          ./m-source/m pkg provider default nodejs "$concrete"
           [ "$(./m-source/m node -p '6*7')" = 42 ]
-          [ "$(./m-source/m pkg provider default nodejs)" = 'nodejs@v26.8.2!linux-x86_64' ]
+          [ "$(./m-source/m pkg provider default nodejs)" = "$concrete"
           ./m-source/m pkg provider default -u nodejs
           echo 'PASS: real v2 Node.js install, launcher HOME, context, pinned facility default'
