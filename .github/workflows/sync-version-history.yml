@@ -39,7 +39,7 @@ jobs:
           fi
       - name: Publish changes
         run: |
-          git add -- pkg
+          git add -- v1/pkg
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

@@ -85,9 +85,9 @@ async function optionalRead(path) {
   catch (error) { if (error.code === "ENOENT") return null; throw error; }
 }
 
-for (const pkg of await readdir("pkg", { withFileTypes: true })) {
+for (const pkg of await readdir("v1/pkg", { withFileTypes: true })) {
   if (!pkg.isDirectory()) continue;
-  for (const stream of await readdir(join("pkg", pkg.name), { withFileTypes: true })) {
+  for (const stream of await readdir(join("v1/pkg", pkg.name), { withFileTypes: true })) {
     if (!stream.isDirectory()) continue;
     const repositoryDir = join("pkg", pkg.name, stream.name, "repository");
     if (await optionalRead(join(repositoryDir, "type")) !== "github\n") continue;
