@@ -1,0 +1,51 @@
+name: Validate versioned v1 catalog with autonomous m
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'v1/**'
+      - '.github/workflows/validate-v1-m.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  v1:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m
+          ref: ff55fc9f220f8da3f1f90d1bf4aa2e46c55a5d2a
+          path: m-source
+          persist-credentials: false
+      - name: Verify real public v1 package requirement queries and snapshot root
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m osarch update
+          [ "$(./m-source/m pkg requirement list mk@v0.1.0)" = 'nodejs =26' ]
+          [ "$(./m-source/m pkg requirement list jsc@v0.1.0)" = 'nodejs =26' ]
+          ./m-source/m sh -c '
+            . "$m_LIB_DIR/sys/sh/core.lib.sh" || exit 1
+            loadsyslib "pkg/pkg-catalog" || exit 1
+            work=$(mktemp -d) || exit 1
+            cache=$(mktemp -d) || exit 1
+            pkg_catalog_init selected revision "$work" "$cache" || exit 1
+            case "$selected" in */catalog/v1) : ;; *) exit 1 ;; esac
+            [ -f "$selected/pkg/mk/all/n0001=v0.1.0/dependency" ] || exit 1
+            [ -d "$selected/facility/nodejs/26" ] || exit 1
+            [ -n "$revision" ] || exit 1
+            rm -rf -- "$work" "$cache"
+          '
+          echo 'PASS: autonomous m resolves v1 package and facility definitions'
