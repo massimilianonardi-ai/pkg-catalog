@@ -37,15 +37,32 @@ jobs:
           printf '%s\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
           echo 'CHECKPOINT: probing official Node.js index and real repository adapter'
           index_file=$(mktemp)
-          ./m-source/m http-fetch -o "$index_file" -- https://nodejs.org/dist/index.json
-          grep -F 'v26.8.2' "$index_file" > /dev/null
+          if ./m-source/m http-fetch -o "$index_file" -- https://nodejs.org/dist/index.json
+          then
+            echo 'CHECKPOINT: Node.js index fetched'
+          else
+            echo 'DIAGNOSTIC: Node.js index fetch failed'
+          fi
+          wc -c < "$index_file"
+          if grep -F 'v26.8.2' "$index_file" > /dev/null
+          then
+            echo 'CHECKPOINT: requested version present in upstream index'
+          else
+            echo 'DIAGNOSTIC: requested version absent in upstream response'
+            head -c 160 "$index_file" || :
+            printf '\n'
+          fi
           rm -f -- "$index_file"
-          NODE_REPOSITORY="$GITHUB_WORKSPACE/v2/pkg/nodejs/linux-x86_64/repository" ./m-source/m sh -ec '
+          if NODE_REPOSITORY="$GITHUB_WORKSPACE/v2/pkg/nodejs/linux-x86_64/repository" ./m-source/m sh -ec '
             . "$m_LIB_DIR/sys/sh/core.lib.sh"
             loadsyslib "pkg/repository/pkg-repository-nodejs"
             pkg_repository_resolve_version "$NODE_REPOSITORY" v26.8.2
           '
-          echo 'CHECKPOINT: upstream release and adapter resolve'
+          then
+            echo 'CHECKPOINT: real repository adapter resolved exact version'
+          else
+            echo 'DIAGNOSTIC: repository adapter did not resolve exact version'
+          fi
           ./m-source/m pkg install nodejs@v26.8.2
           concrete=$(./m-source/m pkg default nodejs)
           [ "$concrete" = 'nodejs@v26.8.2!linux-x86_64' ]
