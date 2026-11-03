@@ -116,3 +116,53 @@ jobs:
           set -eu
           ./m-source/m osarch update
           ./m-source/m sh m-source/.github/scripts/pkg-v2-libraries-test.sh
+
+  v1-regression:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - name: Checkout pinned v2 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m
+          ref: 6007f79787170a82b5af8b173e5891f2c7c17f09
+          path: m-source
+          persist-credentials: false
+      - name: Checkout unmodified v1 catalog
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 759127c79c576cacb22ba0c4bb55d4746279e0f3
+          path: catalog-v1
+          persist-credentials: false
+      - name: Install and execute real v1 jq with v2-capable runtime
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m osarch update
+          conf=$(./m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog-v1" > "$conf/catalog"
+          installed=
+          for attempt in 1 2 3
+          do
+            if ./m-source/m pkg install jq@jq-1.8.2
+            then
+              installed=yes
+              break
+            fi
+            [ "$attempt" -lt 3 ] || break
+            sleep 4
+          done
+          [ "$installed" = yes ]
+          concrete=$(./m-source/m pkg default jq)
+          case "$concrete" in jq@jq-1.8.2!*) : ;; *) exit 1 ;; esac
+          [ ! -e "m-source/pkg/$concrete/schema" ] && [ ! -L "m-source/pkg/$concrete/schema" ]
+          [ -f "m-source/pkg/$concrete/cmd/jq" ]
+          [ -L "m-source/pkg/$concrete/link/jq" ]
+          [ "$(./m-source/m jq -n '6*7')" = 42 ]
+          echo 'PASS: unmodified v1 package installs and launches on upgraded m'
