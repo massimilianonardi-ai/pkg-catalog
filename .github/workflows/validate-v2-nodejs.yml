@@ -1,0 +1,61 @@
+name: Validate real v2 Node.js facility provider
+
+on:
+  push:
+    branches: [pkg-schema-v2]
+    paths:
+      - 'v2/pkg/nodejs/**'
+      - '.github/workflows/validate-v2-nodejs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-nodejs-provider:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout catalog
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact m runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m
+          ref: e80fcc23c4397687e83b20688923df1e9040d137
+          path: m-source
+          persist-credentials: false
+      - name: Install and use the real Node.js provider
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m osarch update
+          conf=$(./m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
+          ./m-source/m pkg install nodejs@v26.8.2
+          concrete=$(./m-source/m pkg default nodejs)
+          [ "$concrete" = 'nodejs@v26.8.2!linux-x86_64' ]
+          [ "$(cat "m-source/pkg/$concrete/schema")" = v2 ]
+          [ "$(readlink "m-source/pkg/$concrete/link/bin/node")" = ../../cmd/node ]
+          [ "$(readlink "m-source/pkg/$concrete/link/target/node")" = ../../root/bin/node ]
+          [ "$(./m-source/m node -p '6*7')" = 42 ]
+          [ -n "$(./m-source/m npm --version)" ]
+          [ -n "$(./m-source/m npx --version)" ]
+          expected_home=$(./m-source/m state-path user pkg nodejs home)
+          [ "$(./m-source/m node -p 'process.env.HOME')" = "$expected_home" ]
+          CONCRETE="$concrete" ./m-source/m sh -ec '
+            . "$m_LIB_DIR/sys/sh/core.lib.sh"
+            context "pkg=$CONCRETE"
+            [ "$(command -v node)" = "$m_PKG_DIR/$CONCRETE/link/bin/node" ]
+            [ "$(node -p "6*7")" = 42 ]
+            context
+          '
+          ./m-source/m pkg default -u nodejs
+          ./m-source/m pkg provider default nodejs 'nodejs@v26.8.2!linux-x86_64'
+          [ "$(./m-source/m node -p '6*7')" = 42 ]
+          [ "$(./m-source/m pkg provider default nodejs)" = 'nodejs@v26.8.2!linux-x86_64' ]
+          ./m-source/m pkg provider default -u nodejs
+          echo 'PASS: real v2 Node.js install, launcher HOME, context, pinned facility default'
