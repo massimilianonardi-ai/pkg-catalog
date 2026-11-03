@@ -4,8 +4,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'pkg/amazon-wishlist-extract/**/dependency'
-      - 'pkg/amazon-wishlist-monitor/**/dependency'
+      - 'v1/pkg/amazon-wishlist-extract/**/dependency'
+      - 'v1/pkg/amazon-wishlist-monitor/**/dependency'
       - '.github/workflows/verify-amazon-web-control-compatibility.yml'
   workflow_dispatch:
 
@@ -23,11 +23,26 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/rumiai-os
           ref: 0d83d044222f271b99d873a403629e7df34ea1c8
           path: rumiai-os
+      # This workflow validates the intentionally pinned legacy rumiai-os
+      # revision, so it must also use the exact pre-v1 catalog snapshot.
+      # The current v1 catalog is validated by the autonomous m workflow.
+      - name: Pin the legacy catalog for the frozen runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          legacy="$RUNNER_TEMP/legacy-pkg-catalog"
+          git clone --quiet --no-local "$GITHUB_WORKSPACE" "$legacy"
+          git -C "$legacy" checkout --quiet -B legacy f859089b5df0f6756765545db05dd6b00d8bd0ae
+          conf=$(./rumiai-os/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\\n' "$legacy" > "$conf/catalog"
       - name: Install and resolve real level-3 provider
         shell: bash
         run: |

@@ -3,7 +3,7 @@ name: Build Playwright package
 on:
   push:
     paths:
-      - "pkg/playwright/**"
+      - "v1/pkg/playwright/**"
       - ".github/workflows/build-playwright.yml"
   workflow_dispatch:
 
