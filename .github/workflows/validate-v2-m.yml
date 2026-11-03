@@ -29,7 +29,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m
-          ref: 2be3f42d3c4921c225d9e833322a5df711602a6b
+          ref: e84169b80a529c854e589aa50ec6b2f1b893dff6
           path: m-source
           persist-credentials: false
       - name: Run real package installation from exact v2 snapshot
@@ -102,7 +102,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m
-          ref: 2be3f42d3c4921c225d9e833322a5df711602a6b
+          ref: e84169b80a529c854e589aa50ec6b2f1b893dff6
           path: m-source
           persist-credentials: false
       - name: Set up Java for real JAR consumer
@@ -129,7 +129,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m
-          ref: 2be3f42d3c4921c225d9e833322a5df711602a6b
+          ref: e84169b80a529c854e589aa50ec6b2f1b893dff6
           path: m-source
           persist-credentials: false
       - name: Install and execute real v1 jq with v2-capable runtime
@@ -176,7 +176,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m
-          ref: 2be3f42d3c4921c225d9e833322a5df711602a6b
+          ref: e84169b80a529c854e589aa50ec6b2f1b893dff6
           path: m-source
           persist-credentials: false
       - name: Validate central facility nodejs contract with provider bin parameter
@@ -202,7 +202,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m
-          ref: 2be3f42d3c4921c225d9e833322a5df711602a6b
+          ref: e84169b80a529c854e589aa50ec6b2f1b893dff6
           path: m-source
           persist-credentials: false
       - name: Validate service start through selected package link/bin
