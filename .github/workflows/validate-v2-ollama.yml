@@ -73,7 +73,7 @@ jobs:
           ./m-source/m srv stop ollama
           trap - EXIT HUP INT TERM
           echo 'PASS: real v2 Ollama package, pinned provider, srv start/ready/stop/idempotence'
-real-ollama-host-system:
+  real-ollama-host-system:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
