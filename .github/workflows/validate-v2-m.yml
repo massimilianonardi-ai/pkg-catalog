@@ -88,3 +88,4 @@ jobs:
             context
           '
           echo 'PASS: real public v2 jq install, direct/wrapped commands and context'
+          CONCRETE="$concrete" ./m-source/m sh m-source/.github/scripts/pkg-v2-coexistence-test.sh
