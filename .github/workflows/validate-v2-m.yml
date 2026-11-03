@@ -58,6 +58,7 @@ jobs:
           case "$concrete" in jq@jq-1.8.2!*) : ;; *) exit 1 ;; esac
           [ "$(cat "m-source/pkg/$concrete/schema")" = v2 ]
           case "$(readlink "m-source/pkg/$concrete/link/bin/jq")" in ../../root/jq-*) : ;; *) exit 1 ;; esac
-          test -L m-source/bin/ext/jq
+          osarch=${concrete##*!}
+          test -L "m-source/bin/ext-$osarch/jq"
           [ "$(./m-source/m jq -n '21*2')" = 42 ]
           echo 'PASS: real public v2 jq install and direct executable'
