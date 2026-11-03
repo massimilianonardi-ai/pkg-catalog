@@ -34,7 +34,7 @@ jobs:
       - name: Install and use the real Node.js provider
         shell: sh
         run: |
-          set -eu
+          set -eux
           ./m-source/m osarch update
           conf=$(./m-source/m state-path system sys pkg conf)
           mkdir -p -- "$conf"
