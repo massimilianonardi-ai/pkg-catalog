@@ -25,7 +25,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
-          repository: massimilianonardi-ai/m
+          repository: massimilianonardi-ai/m-os
           ref: ff55fc9f220f8da3f1f90d1bf4aa2e46c55a5d2a
           path: m-source
           persist-credentials: false
