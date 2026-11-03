@@ -18,7 +18,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,3 +49,14 @@ jobs:
             rm -rf -- "$work" "$cache"
           '
           echo 'PASS: autonomous m resolves v1 package and facility definitions'
+      - name: Install and execute a real pinned v1 package
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m pkg install jq@jq-1.8.2
+          concrete=$(./m-source/m pkg default jq)
+          case "$concrete" in jq@jq-1.8.2!*) : ;; *) exit 1 ;; esac
+          [ -d "m-source/pkg/$concrete/root" ]
+          result=$(./m-source/m jq -n '21*2')
+          [ "$result" = 42 ]
+          echo 'PASS: real public v1 jq install and package-wrapped execution'
