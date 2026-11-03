@@ -61,6 +61,6 @@ jobs:
           ./m-source/m pkg default -u nodejs
           ./m-source/m pkg provider default nodejs "$concrete"
           [ "$(./m-source/m node -p '6*7')" = 42 ]
-          [ "$(./m-source/m pkg provider default nodejs)" = "$concrete"
+          [ "$(./m-source/m pkg provider default nodejs)" = "$concrete" ]
           ./m-source/m pkg provider default -u nodejs
           echo 'PASS: real v2 Node.js install, launcher HOME, context, pinned facility default'
