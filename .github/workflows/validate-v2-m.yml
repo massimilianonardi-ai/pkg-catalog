@@ -51,7 +51,20 @@ jobs:
             rm -rf -- "$work" "$cache"
           '
           echo 'CHECKPOINT: v2 catalog snapshot verified'
-          ./m-source/m pkg install jq@jq-1.8.2
+          installed=
+          # Retry transient upstream network failures; integrity, malformed
+          # definitions and failed execution assertions are never retried.
+          for attempt in 1 2 3
+          do
+            if ./m-source/m pkg install jq@jq-1.8.2
+            then
+              installed=yes
+              break
+            fi
+            [ "$attempt" -lt 3 ] || break
+            sleep 4
+          done
+          [ "$installed" = yes ]
           echo 'CHECKPOINT: v2 pkg install completed'
           find m-source/pkg -maxdepth 4 -type l -o -name schema | sort
           concrete=$(./m-source/m pkg default jq)
@@ -61,4 +74,16 @@ jobs:
           osarch=${concrete##*!}
           test -L "m-source/bin/ext-$osarch/jq"
           [ "$(./m-source/m jq -n '21*2')" = 42 ]
-          echo 'PASS: real public v2 jq install and direct executable'
+          [ "$(readlink "m-source/pkg/$concrete/link/bin/jq-wrapped")" = "../../cmd/jq-wrapped" ]
+          case "$(readlink "m-source/pkg/$concrete/link/target/jq-wrapped")" in ../../root/jq-*) : ;; *) exit 1 ;; esac
+          test -L "m-source/bin/ext-$osarch/jq-wrapped"
+          [ "$(./m-source/m jq-wrapped '21*2')" = 42 ]
+          CONCRETE="$concrete" ./m-source/m sh -ec '
+            context "pkg=$CONCRETE"
+            [ "$(command -v jq)" = "$m_PKG_DIR/$CONCRETE/link/bin/jq" ]
+            [ "$(command -v jq-wrapped)" = "$m_PKG_DIR/$CONCRETE/link/bin/jq-wrapped" ]
+            [ "$(jq -n "6*7")" = 42 ]
+            [ "$(jq-wrapped "6*7")" = 42 ]
+            context
+          '
+          echo 'PASS: real public v2 jq install, direct/wrapped commands and context'
