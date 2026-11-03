@@ -185,3 +185,29 @@ jobs:
           set -eu
           ./m-source/m osarch update
           CATALOG_V2="$GITHUB_WORKSPACE/v2" ./m-source/m sh m-source/.github/scripts/pkg-v2-facility-command-test.sh
+
+  v2-service-entry:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - name: Checkout v2 service contracts
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact v2 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m
+          ref: 88c5494649b5827625e7b3b13a742bf3370f1d61
+          path: m-source
+          persist-credentials: false
+      - name: Validate service start through selected package link/bin
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m osarch update
+          CATALOG_V2="$GITHUB_WORKSPACE/v2" ./m-source/m sh m-source/.github/scripts/pkg-v2-service-entry-test.sh
