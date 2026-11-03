@@ -28,7 +28,7 @@ jobs:
       - name: Checkout exact autonomous v2 runtime
         uses: actions/checkout@v4
         with:
-          repository: massimilianonardi-ai/m
+          repository: massimilianonardi-ai/m-os
           ref: dca35bafd1e7ab3993bb9b38e72877b200dfb5b5
           path: m-source
           persist-credentials: false
@@ -101,7 +101,7 @@ jobs:
       - name: Checkout pinned v2 runtime
         uses: actions/checkout@v4
         with:
-          repository: massimilianonardi-ai/m
+          repository: massimilianonardi-ai/m-os
           ref: dca35bafd1e7ab3993bb9b38e72877b200dfb5b5
           path: m-source
           persist-credentials: false
@@ -128,7 +128,7 @@ jobs:
       - name: Checkout pinned v2 runtime
         uses: actions/checkout@v4
         with:
-          repository: massimilianonardi-ai/m
+          repository: massimilianonardi-ai/m-os
           ref: dca35bafd1e7ab3993bb9b38e72877b200dfb5b5
           path: m-source
           persist-credentials: false
@@ -175,7 +175,7 @@ jobs:
       - name: Checkout facility-parameter runtime
         uses: actions/checkout@v4
         with:
-          repository: massimilianonardi-ai/m
+          repository: massimilianonardi-ai/m-os
           ref: dca35bafd1e7ab3993bb9b38e72877b200dfb5b5
           path: m-source
           persist-credentials: false
@@ -201,7 +201,7 @@ jobs:
       - name: Checkout exact v2 runtime
         uses: actions/checkout@v4
         with:
-          repository: massimilianonardi-ai/m
+          repository: massimilianonardi-ai/m-os
           ref: dca35bafd1e7ab3993bb9b38e72877b200dfb5b5
           path: m-source
           persist-credentials: false

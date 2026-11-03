@@ -27,7 +27,7 @@ jobs:
       - name: Checkout exact m runtime
         uses: actions/checkout@v4
         with:
-          repository: massimilianonardi-ai/m
+          repository: massimilianonardi-ai/m-os
           ref: 8c8397dbcf1df44822553aebd1891ab6db880945
           path: m-source
           persist-credentials: false
