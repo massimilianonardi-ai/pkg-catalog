@@ -132,13 +132,6 @@ jobs:
           ref: 6007f79787170a82b5af8b173e5891f2c7c17f09
           path: m-source
           persist-credentials: false
-      - name: Checkout unmodified v1 catalog
-        uses: actions/checkout@v4
-        with:
-          repository: massimilianonardi-ai/pkg-catalog
-          ref: 759127c79c576cacb22ba0c4bb55d4746279e0f3
-          path: catalog-v1
-          persist-credentials: false
       - name: Install and execute real v1 jq with v2-capable runtime
         shell: sh
         run: |
