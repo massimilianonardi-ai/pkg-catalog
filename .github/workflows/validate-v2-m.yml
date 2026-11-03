@@ -1,0 +1,60 @@
+name: Validate v2 direct package entrypoints
+
+on:
+  push:
+    branches: [pkg-schema-v2]
+    paths:
+      - 'v2/**'
+      - '.github/workflows/validate-v2-m.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  v2-jq:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - name: Checkout v2 catalog branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Checkout exact autonomous v2 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m
+          ref: 047550a27e97f0f0cc18cdfad50fa04a98c284f6
+          path: m-source
+          persist-credentials: false
+      - name: Run real package installation from exact v2 snapshot
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m osarch update
+          conf=$(./m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
+          ./m-source/m sh -c '
+            . "$m_LIB_DIR/sys/sh/core.lib.sh" || exit 1
+            loadsyslib "pkg/pkg-catalog" || exit 1
+            work=$(mktemp -d) || exit 1
+            cache=$(mktemp -d) || exit 1
+            pkg_catalog_init selected revision "$work" "$cache" || exit 1
+            [ "$revision" = "$GITHUB_SHA" ] || exit 1
+            [ -d "${selected%/v1}/v2/pkg/jq" ] || exit 1
+            rm -rf -- "$work" "$cache"
+          '
+          ./m-source/m pkg install jq@jq-1.8.2
+          concrete=$(./m-source/m pkg default jq)
+          case "$concrete" in jq@jq-1.8.2!*) : ;; *) exit 1 ;; esac
+          [ "$(cat "m-source/pkg/$concrete/schema")" = v2 ]
+          [ "$(readlink "m-source/pkg/$concrete/link/bin/jq")" = "../../root/jq-${RUNNER_OS}" ] || :
+          test -L m-source/bin/ext/jq
+          [ "$(./m-source/m jq -n '21*2')" = 42 ]
+          echo 'PASS: real public v2 jq install and direct executable'
