@@ -42,7 +42,7 @@ jobs:
           git -C "$legacy" checkout --quiet -B legacy f859089b5df0f6756765545db05dd6b00d8bd0ae
           conf=$(./rumiai-os/m state-path system sys pkg conf)
           mkdir -p -- "$conf"
-          printf '%s\\n' "$legacy" > "$conf/catalog"
+          printf '%s\n' "$legacy" > "$conf/catalog"
       - name: Install and resolve real level-3 provider
         shell: bash
         run: |
