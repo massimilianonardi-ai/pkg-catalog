@@ -79,6 +79,7 @@ jobs:
           test -L "m-source/bin/ext-$osarch/jq-wrapped"
           [ "$(./m-source/m jq-wrapped '21*2')" = 42 ]
           CONCRETE="$concrete" ./m-source/m sh -ec '
+            . "$m_LIB_DIR/sys/sh/core.lib.sh"
             context "pkg=$CONCRETE"
             [ "$(command -v jq)" = "$m_PKG_DIR/$CONCRETE/link/bin/jq" ]
             [ "$(command -v jq-wrapped)" = "$m_PKG_DIR/$CONCRETE/link/bin/jq-wrapped" ]
