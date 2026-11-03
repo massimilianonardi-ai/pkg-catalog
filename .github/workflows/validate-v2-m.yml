@@ -159,3 +159,29 @@ jobs:
           [ -L "m-source/pkg/$concrete/link/jq" ]
           [ "$(./m-source/m jq -n '6*7')" = 42 ]
           echo 'PASS: unmodified v1 package installs and launches on upgraded m'
+
+  v2-facility-commands:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - name: Checkout v2 catalog contract
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout facility-parameter runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m
+          ref: e6b51f3e9bf935f63515bb157a2914c791e72239
+          path: m-source
+          persist-credentials: false
+      - name: Validate central facility nodejs contract with provider bin parameter
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m osarch update
+          CATALOG_V2="$GITHUB_WORKSPACE/v2" ./m-source/m sh m-source/.github/scripts/pkg-v2-facility-command-test.sh
