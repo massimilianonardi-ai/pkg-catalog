@@ -29,7 +29,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m
-          ref: 047550a27e97f0f0cc18cdfad50fa04a98c284f6
+          ref: b89cf35fa2592e95057d2ff5069e9c4cbf1f2c3e
           path: m-source
           persist-credentials: false
       - name: Run real package installation from exact v2 snapshot
