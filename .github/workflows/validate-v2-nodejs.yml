@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 8c8397dbcf1df44822553aebd1891ab6db880945
+          ref: d11363856ee06f32eadd7b2b3cb89ae390ef7ac3
           path: m-source
           persist-credentials: false
       - name: Install and use the real Node.js provider
