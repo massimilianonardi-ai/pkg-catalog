@@ -35,7 +35,7 @@ jobs:
       - name: Run real package installation from exact v2 snapshot
         shell: sh
         run: |
-          set -eu
+          set -eux
           ./m-source/m osarch update
           conf=$(./m-source/m state-path system sys pkg conf)
           mkdir -p -- "$conf"
@@ -50,7 +50,10 @@ jobs:
             [ -d "${selected%/v1}/v2/pkg/jq" ] || exit 1
             rm -rf -- "$work" "$cache"
           '
+          echo 'CHECKPOINT: v2 catalog snapshot verified'
           ./m-source/m pkg install jq@jq-1.8.2
+          echo 'CHECKPOINT: v2 pkg install completed'
+          find m-source/pkg -maxdepth 4 -type l -o -name schema | sort
           concrete=$(./m-source/m pkg default jq)
           case "$concrete" in jq@jq-1.8.2!*) : ;; *) exit 1 ;; esac
           [ "$(cat "m-source/pkg/$concrete/schema")" = v2 ]
