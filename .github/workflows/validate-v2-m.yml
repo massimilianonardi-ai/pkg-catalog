@@ -146,7 +146,7 @@ jobs:
           ./m-source/m osarch update
           conf=$(./m-source/m state-path system sys pkg conf)
           mkdir -p -- "$conf"
-          printf '%s\n' "$GITHUB_WORKSPACE/catalog-v1" > "$conf/catalog"
+          printf '%s\n' 'https://github.com/massimilianonardi-ai/pkg-catalog.git' > "$conf/catalog"
           installed=
           for attempt in 1 2 3
           do
