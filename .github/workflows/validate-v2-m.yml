@@ -176,7 +176,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m
-          ref: e6b51f3e9bf935f63515bb157a2914c791e72239
+          ref: e7bca005744e7e6d7edc2ac994e474c9968fbb0b
           path: m-source
           persist-credentials: false
       - name: Validate central facility nodejs contract with provider bin parameter
