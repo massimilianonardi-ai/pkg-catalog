@@ -29,7 +29,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m
-          ref: df6d46b706216bd469e599f6ae4319f57ffca7fe
+          ref: 5e5c018e2ec3b4bec8679c92765e968853c123c8
           path: m-source
           persist-credentials: false
       - name: Run real package installation from exact v2 snapshot
@@ -102,7 +102,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m
-          ref: df6d46b706216bd469e599f6ae4319f57ffca7fe
+          ref: 5e5c018e2ec3b4bec8679c92765e968853c123c8
           path: m-source
           persist-credentials: false
       - name: Set up Java for real JAR consumer
