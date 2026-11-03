@@ -4,6 +4,7 @@ import { join } from "node:path";
 const versionPattern = /^[A-Za-z0-9][A-Za-z0-9._+~-]*$/;
 const histories = new Map();
 const changes = [];
+const packageDirectory = "v1/pkg";
 const full = process.argv.length === 3 && process.argv[2] === "--full";
 if (process.argv.length > (full ? 3 : 2)) throw new Error("usage: node sync-version-history.mjs [--full]");
 
@@ -85,11 +86,11 @@ async function optionalRead(path) {
   catch (error) { if (error.code === "ENOENT") return null; throw error; }
 }
 
-for (const pkg of await readdir("v1/pkg", { withFileTypes: true })) {
+for (const pkg of await readdir(packageDirectory, { withFileTypes: true })) {
   if (!pkg.isDirectory()) continue;
-  for (const stream of await readdir(join("v1/pkg", pkg.name), { withFileTypes: true })) {
+  for (const stream of await readdir(join(packageDirectory, pkg.name), { withFileTypes: true })) {
     if (!stream.isDirectory()) continue;
-    const repositoryDir = join("pkg", pkg.name, stream.name, "repository");
+    const repositoryDir = join(packageDirectory, pkg.name, stream.name, "repository");
     if (await optionalRead(join(repositoryDir, "type")) !== "github\n") continue;
     const owner = (await readFile(join(repositoryDir, "owner"), "utf8")).trim();
     const repository = (await readFile(join(repositoryDir, "repository"), "utf8")).trim();
@@ -102,7 +103,7 @@ for (const pkg of await readdir("v1/pkg", { withFileTypes: true })) {
         known.some(v => !versionPattern.test(v)))) {
       throw new Error(file + ": invalid saved history");
     }
-    const rangeNames = await readdir(join("pkg", pkg.name, stream.name));
+    const rangeNames = await readdir(join(packageDirectory, pkg.name, stream.name));
     const anchors = rangeNames.filter(name => /^n0001=/.test(name));
     if (anchors.length !== 1 || !versionPattern.test(anchors[0].slice(6))) {
       throw new Error(file + ": missing or invalid first range anchor");
@@ -120,6 +121,10 @@ for (const pkg of await readdir("v1/pkg", { withFileTypes: true })) {
     const next = live.join("\n") + "\n";
     if (old !== next) changes.push({ file, next });
   }
+}
+
+if (histories.size === 0) {
+  throw new Error("no GitHub catalog streams were inspected");
 }
 
 // A failed upstream inspection changes no catalog files.
