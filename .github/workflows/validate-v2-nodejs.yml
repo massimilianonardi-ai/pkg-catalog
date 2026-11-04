@@ -65,7 +65,7 @@ jobs:
           ./m-source/m pkg provider default -u nodejs
           # Use the real provider to create managed mutable package HOME data.
           # Uninstalling and reinstalling the exact artifact must not erase it.
-          ./m-source/m node -e 'const fs = require("node:fs");fs.mkdirSync(process.env.HOME,{recursive:true});fs.writeFileSync(process.env.HOME+"/v2-reinstall-marker","state-preserved\\n")'
+          ./m-source/m node -e 'const fs = require("node:fs");fs.mkdirSync(process.env.HOME,{recursive:true});fs.writeFileSync(process.env.HOME+"/v2-reinstall-marker","state-preserved")'
           [ -f "$expected_home/v2-reinstall-marker" ]
           ./m-source/m pkg uninstall nodejs@v26.8.2
           [ -f "$expected_home/v2-reinstall-marker" ]
