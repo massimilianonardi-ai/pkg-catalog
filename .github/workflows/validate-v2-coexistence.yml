@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: ba42d7b0b5469ddefd164c1578c46531451b7098
+          ref: cc589863090d5932f2d603985d6ec8dbd47ea696
           path: m-source
           persist-credentials: false
       - uses: actions/checkout@v4
