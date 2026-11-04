@@ -29,7 +29,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 8d39c188e7a1a1f4a6d3f8308281411564360810
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
           path: m-source
           persist-credentials: false
       - name: Run real package installation from exact v2 snapshot
@@ -102,7 +102,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 8d39c188e7a1a1f4a6d3f8308281411564360810
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
           path: m-source
           persist-credentials: false
       - name: Set up Java for real JAR consumer
@@ -129,7 +129,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 8d39c188e7a1a1f4a6d3f8308281411564360810
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
           path: m-source
           persist-credentials: false
       - name: Install and execute real v1 jq with v2-capable runtime
@@ -176,7 +176,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 8d39c188e7a1a1f4a6d3f8308281411564360810
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
           path: m-source
           persist-credentials: false
       - name: Validate central facility nodejs contract with provider bin parameter
@@ -202,7 +202,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 8d39c188e7a1a1f4a6d3f8308281411564360810
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
           path: m-source
           persist-credentials: false
       - name: Validate service start through selected package link/bin
@@ -229,7 +229,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 8d39c188e7a1a1f4a6d3f8308281411564360810
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
           path: m-source
           persist-credentials: false
       - name: Validate generic and platform-specific provider global environment
@@ -262,7 +262,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 8d39c188e7a1a1f4a6d3f8308281411564360810
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
           path: m-source
           persist-credentials: false
       - name: Exercise real v1 uninstall and exact v2 reinstall on the same target
@@ -270,6 +270,10 @@ jobs:
         run: |
           set -eu
           ./m-source/m osarch update
+          # actions/checkout with an exact SHA leaves this source detached.
+          # Give the unchanged v1 snapshot a local branch so its own
+          # cache checkout has a valid pull/FF upstream; do not alter commits.
+          git -C v1-catalog switch -c ci-v1-snapshot
           conf=$(./m-source/m state-path system sys pkg conf)
           cache=$(./m-source/m state-path system sys pkg cache)
           mkdir -p -- "$conf"
