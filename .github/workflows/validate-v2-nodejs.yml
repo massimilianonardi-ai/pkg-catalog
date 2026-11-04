@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 8d39c188e7a1a1f4a6d3f8308281411564360810
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
           path: m-source
           persist-credentials: false
       - name: Install and use the real Node.js provider
@@ -63,6 +63,9 @@ jobs:
           [ "$(./m-source/m node -p '6*7')" = 42 ]
           [ "$(./m-source/m pkg provider default nodejs)" = "$concrete" ]
           ./m-source/m pkg provider default -u nodejs
+          # Restore an explicit package default before using the public
+          # Node.js command again; no ambient host Node.js is consulted.
+          ./m-source/m pkg default nodejs@v26.8.2
           # Use the real provider to create managed mutable package HOME data.
           # Uninstalling and reinstalling the exact artifact must not erase it.
           ./m-source/m node -e 'const fs = require("node:fs");fs.mkdirSync(process.env.HOME,{recursive:true});fs.writeFileSync(process.env.HOME+"/v2-reinstall-marker","state-preserved")'
