@@ -22,7 +22,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: e79520a9bf946e68dcc1543ea76a7ed7cc6d66b2
+          ref: 380d0f43992c22123042cf389675c658e770d193
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          path: catalog
           persist-credentials: false
       - name: Run real v1/v2 installed-schema defaults and wrapper transitions, offline
         shell: sh
@@ -30,3 +34,8 @@ jobs:
           set -eu
           ./m osarch update
           ./m sh .github/scripts/pkg-v2-default-coexistence-test.sh
+      - name: Verify consumer and provider selections across installed schemas, offline
+        shell: sh
+        run: |
+          set -eu
+          CATALOG_V2="$GITHUB_WORKSPACE/catalog/v2" ./m sh .github/scripts/pkg-v2-mixed-provider-test.sh
