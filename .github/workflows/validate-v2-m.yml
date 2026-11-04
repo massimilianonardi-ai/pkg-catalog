@@ -29,7 +29,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 71b33c6c811a1a7b4840dba0d2a3f86aa054ef3a
+          ref: d166ccb94fcc4ce132596ad8a1322e95ff61e404
           path: m-source
           persist-credentials: false
       - name: Run real package installation from exact v2 snapshot
@@ -102,7 +102,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 71b33c6c811a1a7b4840dba0d2a3f86aa054ef3a
+          ref: d166ccb94fcc4ce132596ad8a1322e95ff61e404
           path: m-source
           persist-credentials: false
       - name: Set up Java for real JAR consumer
@@ -129,7 +129,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 71b33c6c811a1a7b4840dba0d2a3f86aa054ef3a
+          ref: d166ccb94fcc4ce132596ad8a1322e95ff61e404
           path: m-source
           persist-credentials: false
       - name: Install and execute real v1 jq with v2-capable runtime
@@ -176,7 +176,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 71b33c6c811a1a7b4840dba0d2a3f86aa054ef3a
+          ref: d166ccb94fcc4ce132596ad8a1322e95ff61e404
           path: m-source
           persist-credentials: false
       - name: Validate central facility nodejs contract with provider bin parameter
@@ -202,7 +202,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 71b33c6c811a1a7b4840dba0d2a3f86aa054ef3a
+          ref: d166ccb94fcc4ce132596ad8a1322e95ff61e404
           path: m-source
           persist-credentials: false
       - name: Validate service start through selected package link/bin
@@ -211,3 +211,30 @@ jobs:
           set -eu
           ./m-source/m osarch update
           CATALOG_V2="$GITHUB_WORKSPACE/v2" ./m-source/m sh m-source/.github/scripts/pkg-v2-service-entry-test.sh
+
+
+  v2-global-environment:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }
+    timeout-minutes: 12
+    steps:
+      - name: Checkout central v2 facility contract
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact v2 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: d166ccb94fcc4ce132596ad8a1322e95ff61e404
+          path: m-source
+          persist-credentials: false
+      - name: Validate generic and platform-specific provider global environment
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m osarch update
+          CATALOG_V2="$GITHUB_WORKSPACE/v2" ./m-source/m sh m-source/.github/scripts/pkg-v2-global-environment-test.sh
