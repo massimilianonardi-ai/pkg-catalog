@@ -23,19 +23,25 @@ jobs:
         with:
           repository: massimilianonardi-ai/m-os
           ref: ba42d7b0b5469ddefd164c1578c46531451b7098
+          path: m-source
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/rumiai-tests
+          ref: 446e57294932d5add79d5d356f1d8a3a65dc8ff1
+          path: tests
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
           path: catalog
           persist-credentials: false
-      - name: Run real v1/v2 installed-schema defaults and wrapper transitions, offline
+      - name: Run permanent offline mixed-schema lifecycle tests through rumiai-test
         shell: sh
+        env:
+          RUMIAI_TEST_M_OS_ROOT: ${{ github.workspace }}/m-source
+          RUMIAI_TEST_PKG_CATALOG_ROOT: ${{ github.workspace }}/catalog
         run: |
           set -eu
-          ./m osarch update
-          ./m sh .github/scripts/pkg-v2-default-coexistence-test.sh
-      - name: Verify consumer and provider selections across installed schemas, offline
-        shell: sh
-        run: |
-          set -eu
-          CATALOG_V2="$GITHUB_WORKSPACE/catalog/v2" ./m sh .github/scripts/pkg-v2-mixed-provider-test.sh
+          ./m-source/m osarch update
+          ./tests/rumiai-test --list m-os/pkg-schema-v2
+          ./tests/rumiai-test m-os/pkg-schema-v2
