@@ -1,0 +1,32 @@
+name: Validate offline mixed v1/v2 package defaults
+
+on:
+  push:
+    branches: [pkg-schema-v2]
+    paths:
+      - '.github/workflows/validate-v2-coexistence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mixed-default-lifecycle:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: e79520a9bf946e68dcc1543ea76a7ed7cc6d66b2
+          persist-credentials: false
+      - name: Run real v1/v2 installed-schema defaults and wrapper transitions, offline
+        shell: sh
+        run: |
+          set -eu
+          ./m osarch update
+          ./m sh .github/scripts/pkg-v2-default-coexistence-test.sh
