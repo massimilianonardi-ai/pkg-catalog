@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          ref: 8fb1db493a3265f77bb36ac604a2a1a495a4d448
           path: m-source
           persist-credentials: false
       - name: Install and use the real Node.js provider
@@ -39,6 +39,10 @@ jobs:
           conf=$(./m-source/m state-path system sys pkg conf)
           mkdir -p -- "$conf"
           printf '%s\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
+          # Exercise the real upstream Node.js index and selection of
+          # a stable release within the catalog's configured major.
+          ./m-source/m pkg depend nodejs
+          echo 'CHECKPOINT: live Node.js index/resolve through pkg depend'
           ./m-source/m pkg install nodejs@v26.8.2
           osarch=$(./m-source/m sh -ec '. "$m_LIB_DIR/sys/sh/core.lib.sh"; loadsyslib "osarch"; printf "%s" "$m_OSARCH"')
           concrete=$(./m-source/m pkg default nodejs)
