@@ -273,7 +273,7 @@ jobs:
           conf=$(./m-source/m state-path system sys pkg conf)
           cache=$(./m-source/m state-path system sys pkg cache)
           mkdir -p -- "$conf"
-          printf '%s\\n' "$GITHUB_WORKSPACE/v1-catalog" > "$conf/catalog"
+          printf '%s\n' "$GITHUB_WORKSPACE/v1-catalog" > "$conf/catalog"
           ./m-source/m pkg install jq@jq-1.8.2
           first=$(./m-source/m pkg default jq)
           [ -d "m-source/pkg/$first" ]
@@ -285,7 +285,7 @@ jobs:
           # A switched catalog origin needs a fresh derived cache; installed
           # package/state content is never copied, reset or synthesized.
           rm -rf -- "$cache/catalog"
-          printf '%s\\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
+          printf '%s\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
           ./m-source/m pkg install jq@jq-1.8.2
           second=$(./m-source/m pkg default jq)
           [ "$second" = "$first" ]
