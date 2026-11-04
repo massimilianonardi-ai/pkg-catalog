@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 71b33c6c811a1a7b4840dba0d2a3f86aa054ef3a
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
           path: m-source
           persist-credentials: false
       - name: Install and operate Ollama through public m
@@ -85,7 +85,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 71b33c6c811a1a7b4840dba0d2a3f86aa054ef3a
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
           path: m-source
           persist-credentials: false
       - name: Validate real v2 Ollama through isolated host-system supervision
@@ -225,7 +225,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 71b33c6c811a1a7b4840dba0d2a3f86aa054ef3a
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
           path: m-source
           persist-credentials: false
       - name: Validate real v2 Ollama under the existing POSIX user's systemd manager
