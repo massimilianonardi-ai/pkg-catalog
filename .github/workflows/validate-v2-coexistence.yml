@@ -22,13 +22,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: e296562373bb4100f2b27358deb4807110757f98
+          ref: 6168cb059592281700abe1e350f076afb1a7112e
           path: m-source
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/rumiai-tests
-          ref: 5980de14ad41de105ce74968a95fd3fc51c31d68
+          ref: 9038a8c8d2b649ded2f0bf268f762714e776528d
           path: tests
           persist-credentials: false
       - uses: actions/checkout@v4
