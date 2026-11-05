@@ -1,0 +1,55 @@
+name: Real C1 context with released first-party packages
+
+on:
+  push:
+    branches: [context-c1-real-validation]
+    paths:
+      - '.github/workflows/validate-context-c1-real.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actual-packages:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact disposable v2 catalog revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: catalog
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact autonomous m C1 source
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: d0501e063459721bf69e14f6f29e28e675213482
+          path: m-source
+          persist-credentials: false
+      - name: Configure live m with selected local catalog snapshot
+        shell: sh
+        run: |
+          set -eu
+          [ "$(git -C catalog rev-parse HEAD)" = "$GITHUB_SHA" ]
+          git -C catalog switch -c ci-context-c1
+          ./m-source/m osarch update
+          conf=$(./m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+      - name: Install real published first-party releases
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m pkg install 'm-core@v0.1.0' 'm-term@v0.1.0' 'm-rsudo@v0.1.0'
+      - name: Run genuine package C1 shell acceptance
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m sh m-source/.github/scripts/context-real-packages-test.sh
