@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 54276906b76a96fcb75e45bcd823d8b40c06dfbd
+          ref: d88f650b6965c1e76abeb5133793008a6246efeb
           path: m-os
           persist-credentials: false
       - name: Run the original S workflow's public-command script
