@@ -1,0 +1,56 @@
+name: Real C1 published version replacement
+
+on:
+  push:
+    branches: [context-c1-version-replacement]
+    paths:
+      - '.github/workflows/validate-context-c1-version-replacement.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-version-context:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout feature catalog exactly
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: catalog
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Checkout exact C1 source and test
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 3a608465ffe68cbc772032ffe4156a8e4243c94b
+          path: m-source
+          persist-credentials: false
+      - name: Prepare genuine local catalog and m environment
+        shell: sh
+        run: |
+          set -eu
+          [ "$(git -C catalog rev-parse HEAD)" = "$GITHUB_SHA" ]
+          git -C catalog switch -c ci-context-version
+          ./m-source/m osarch update
+          conf=$(./m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+      - name: Install both authentic immutable versions
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m pkg install 'm-core@v0.1.0' 'm-term@v0.1.0'
+          ./m-source/m pkg install 'm-core@v0.1.1' 'm-term@v0.1.1'
+      - name: Verify exact installed version switch in real context
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m sh m-source/.github/scripts/context-real-version-replacement-test.sh
