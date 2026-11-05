@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: d0501e063459721bf69e14f6f29e28e675213482
+          ref: 07764f66d6ed4614da1190833f354086f05fa4a5
           path: m-source
           persist-credentials: false
       - name: Configure live m with selected local catalog snapshot
