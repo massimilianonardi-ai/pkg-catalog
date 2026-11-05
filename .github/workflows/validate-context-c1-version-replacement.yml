@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 3a608465ffe68cbc772032ffe4156a8e4243c94b
+          ref: fdb825a197fffdeb9d4adc87d04180cb30f8c5a7
           path: m-source
           persist-credentials: false
       - name: Prepare genuine local catalog and m environment
