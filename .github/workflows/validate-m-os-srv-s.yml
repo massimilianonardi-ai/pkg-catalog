@@ -1,0 +1,60 @@
+name: Temporary exact-commit m-os S1/S2 validation
+
+on:
+  push:
+    branches: [m-os-completion-s-ci]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  srv-s:
+    name: srv ${{ matrix.case }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: offline-ubuntu
+            os: ubuntu-latest
+            workflow: m-srv-safety-public.yml
+          - case: offline-macos
+            os: macos-latest
+            workflow: m-srv-safety-public.yml
+          - case: real-provider-ubuntu
+            os: ubuntu-latest
+            workflow: m-srv-provider-live.yml
+    steps:
+      - name: Checkout real m-os S branch at an exact revision
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 11d01a1123022a6c05ce792063579fd1d115892f
+          path: m-os
+          persist-credentials: false
+      - name: Run the original S workflow's public-command script
+        shell: bash
+        working-directory: m-os
+        run: |
+          set -euo pipefail
+          python3 - ".github/workflows/${{ matrix.workflow }}" "$RUNNER_TEMP/m-os-srv-script.sh" <<'PY'
+          import pathlib
+          import sys
+
+          source = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines(keepends=True)
+          indices = [i for i, line in enumerate(source) if line.rstrip("\r\n") == "        run: |"]
+          if len(indices) != 1:
+              raise SystemExit("INFRASTRUCTURE: expected one shell run block in source workflow")
+          script = []
+          for line in source[indices[0] + 1:]:
+              if line.strip() and not line.startswith("          "):
+                  break
+              script.append(line[10:] if line.startswith("          ") else "\n")
+          if not script or not "".join(script).lstrip().startswith("set -eu"):
+              raise SystemExit("INFRASTRUCTURE: source workflow shell block changed unexpectedly")
+          pathlib.Path(sys.argv[2]).write_text("".join(script), encoding="utf-8")
+          PY
+          /bin/sh -n "$RUNNER_TEMP/m-os-srv-script.sh"
+          /bin/sh "$RUNNER_TEMP/m-os-srv-script.sh"
