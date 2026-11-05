@@ -17,15 +17,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - case: stale-identity-ubuntu
+          - case: offline-ubuntu
             os: ubuntu-latest
             workflow: m-srv-safety-public.yml
+          - case: real-provider-ubuntu
+            os: ubuntu-latest
+            workflow: m-srv-provider-live.yml
     steps:
       - name: Checkout real m-os S branch at an exact revision
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 46be6d7a58ad213f06ea0cfdc4b14389f9619492
+          ref: 6c201f3267bffec29180256e505ffdc6e2689de9
           path: m-os
           persist-credentials: false
       - name: Run the original S workflow's public-command script
