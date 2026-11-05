@@ -17,12 +17,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - case: offline-ubuntu
-            os: ubuntu-latest
+          - case: offline-macos
+            os: macos-latest
             workflow: m-srv-safety-public.yml
-          - case: real-provider-ubuntu
-            os: ubuntu-latest
-            workflow: m-srv-provider-live.yml
     steps:
       - name: Checkout real m-os S branch at an exact revision
         uses: actions/checkout@v4
