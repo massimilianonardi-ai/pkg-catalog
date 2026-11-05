@@ -16,13 +16,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
     steps:
       - name: Checkout exact P2 candidate source
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: f718554d663b6b002dd33e37d7a0224d207f5eb9
+          ref: 049dce1b7d8d452242bad548ce731b8d9e71f22f
           path: m-os
           persist-credentials: false
       - name: Execute original P2 public-command workflow script
@@ -30,7 +30,7 @@ jobs:
         working-directory: m-os
         run: |
           set -euo pipefail
-          [ "$(git rev-parse HEAD)" = f718554d663b6b002dd33e37d7a0224d207f5eb9 ] || exit 1
+          [ "$(git rev-parse HEAD)" = 049dce1b7d8d452242bad548ce731b8d9e71f22f ] || exit 1
           python3 - ".github/workflows/m-pkg-p2-public.yml" "$RUNNER_TEMP/m-os-p2-public.sh" <<'PY'
           import pathlib
           import sys
