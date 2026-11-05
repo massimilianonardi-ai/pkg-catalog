@@ -1,0 +1,52 @@
+name: Temporary exact-commit m-os P2 public validation
+
+on:
+  push:
+    branches: [m-os-completion-p2-ci]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pkg-p2-public:
+    name: P2 real public pkg (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout exact P2 candidate source
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: f74ecbabe552fc9e2284c26caea5f5dd4cbb1a3f
+          path: m-os
+          persist-credentials: false
+      - name: Execute original P2 public-command workflow script
+        shell: bash
+        working-directory: m-os
+        run: |
+          set -euo pipefail
+          [ "$(git rev-parse HEAD)" = f74ecbabe552fc9e2284c26caea5f5dd4cbb1a3f ] || exit 1
+          python3 - ".github/workflows/m-pkg-p2-public.yml" "$RUNNER_TEMP/m-os-p2-public.sh" <<'PY'
+          import pathlib
+          import sys
+
+          lines = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines(keepends=True)
+          positions = [i for i, line in enumerate(lines) if line.rstrip("\r\n") == "        run: |"]
+          if len(positions) != 1:
+              raise SystemExit("INFRASTRUCTURE: expected exactly one P2 shell run block")
+          script = []
+          for line in lines[positions[0] + 1:]:
+              if line.strip() and not line.startswith("          "):
+                  break
+              script.append(line[10:] if line.startswith("          ") else "\n")
+          if not script or not "".join(script).lstrip().startswith("set -eu"):
+              raise SystemExit("INFRASTRUCTURE: original P2 public script structure changed")
+          pathlib.Path(sys.argv[2]).write_text("".join(script), encoding="utf-8")
+          PY
+          /bin/sh -n "$RUNNER_TEMP/m-os-p2-public.sh"
+          /bin/sh "$RUNNER_TEMP/m-os-p2-public.sh"
