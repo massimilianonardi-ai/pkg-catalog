@@ -22,7 +22,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 0a0df3075af3ed4a965f645fefb033cdda964fcb
+          ref: 7f2f0b1652e07af869c329104f0e620e795dd8cd
           path: m-os
           persist-credentials: false
       - name: Execute original P2 public-command workflow script
@@ -30,7 +30,7 @@ jobs:
         working-directory: m-os
         run: |
           set -euo pipefail
-          [ "$(git rev-parse HEAD)" = 0a0df3075af3ed4a965f645fefb033cdda964fcb ] || exit 1
+          [ "$(git rev-parse HEAD)" = 7f2f0b1652e07af869c329104f0e620e795dd8cd ] || exit 1
           python3 - ".github/workflows/m-pkg-p2-public.yml" "$RUNNER_TEMP/m-os-p2-public.sh" <<'PY'
           import pathlib
           import sys
