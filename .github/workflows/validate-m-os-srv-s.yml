@@ -17,21 +17,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - case: offline-ubuntu
+          - case: host-user-ubuntu
             os: ubuntu-latest
-            workflow: m-srv-safety-public.yml
-          - case: offline-macos
+            workflow: m-srv-host-user-live.yml
+          - case: host-user-macos
             os: macos-latest
-            workflow: m-srv-safety-public.yml
-          - case: real-provider-ubuntu
-            os: ubuntu-latest
-            workflow: m-srv-provider-live.yml
+            workflow: m-srv-host-user-live.yml
     steps:
       - name: Checkout real m-os S branch at an exact revision
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 11d01a1123022a6c05ce792063579fd1d115892f
+          ref: 5ec400f20638e4992f81c4b4d8468bc65406cabe
           path: m-os
           persist-credentials: false
       - name: Run the original S workflow's public-command script
