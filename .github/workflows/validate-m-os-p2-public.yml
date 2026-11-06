@@ -22,7 +22,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 573ac82e466c5d452ccb30b9b4475b75769c638d
+          ref: c65a60d4b224c670b24e456ddacc65fce8c342b7
           path: m-os
           persist-credentials: false
       - name: Execute original P2 public-command workflow script
@@ -30,7 +30,7 @@ jobs:
         working-directory: m-os
         run: |
           set -euo pipefail
-          [ "$(git rev-parse HEAD)" = 573ac82e466c5d452ccb30b9b4475b75769c638d ] || exit 1
+          [ "$(git rev-parse HEAD)" = c65a60d4b224c670b24e456ddacc65fce8c342b7 ] || exit 1
           python3 - ".github/workflows/m-pkg-p2-public.yml" "$RUNNER_TEMP/m-os-p2-public.sh" <<'PY'
           import pathlib
           import sys
@@ -58,3 +58,7 @@ jobs:
         shell: sh
         working-directory: m-os
         run: /bin/sh .github/scripts/m-pkg-p2-corrupt-download.sh
+      - name: Execute P2 public corrupt artifact installation regression
+        shell: sh
+        working-directory: m-os
+        run: /bin/sh .github/scripts/m-pkg-p2-public-artifact-failure.sh
