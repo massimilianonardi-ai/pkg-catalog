@@ -17,11 +17,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - case: host-user-term-ubuntu
+          - case: offline-ubuntu
+            os: ubuntu-latest
+            workflow: m-srv-safety-public.yml
+          - case: offline-macos-arm64
+            os: macos-latest
+            workflow: m-srv-safety-public.yml
+          - case: provider-ubuntu
+            os: ubuntu-latest
+            workflow: m-srv-provider-live.yml
+          - case: host-user-ubuntu
             os: ubuntu-latest
             workflow: m-srv-host-user-local.yml
-          - case: host-user-term-macos15-intel
-            os: macos-15-intel
+          - case: host-user-macos-arm64
+            os: macos-latest
             workflow: m-srv-host-user-local.yml
     steps:
       - name: Checkout real m-os S branch at an exact revision
