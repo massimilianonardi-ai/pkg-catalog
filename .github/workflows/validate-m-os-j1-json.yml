@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: ad9cb6534d3de62e2fb06a70b2243b27abf17355
+          ref: 6fcb2f257448bbc4ce20e6eab9362fdbb7c8addb
           path: m-os
           persist-credentials: false
       - name: Verify exact J1 source revision
@@ -30,7 +30,7 @@ jobs:
         shell: sh
         run: |
           set -eu
-          [ "$(git rev-parse HEAD)" = ad9cb6534d3de62e2fb06a70b2243b27abf17355 ]
+          [ "$(git rev-parse HEAD)" = 6fcb2f257448bbc4ce20e6eab9362fdbb7c8addb ]
           [ "$(git ls-tree HEAD bin/sys/json | awk '{print $1}')" = 100755 ]
           [ "$(git ls-tree HEAD .github/scripts/m-json-public.sh | awk '{print $1}')" = 100755 ]
       - name: Exercise public JSON command and hostile PATH
