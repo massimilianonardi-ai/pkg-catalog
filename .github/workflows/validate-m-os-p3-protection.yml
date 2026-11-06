@@ -1,0 +1,86 @@
+name: P3 exact-head real Node provider uninstall reference protection
+
+on:
+  push:
+    branches: [m-os-completion-p3-protection-ci]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node-reference:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: e07fbec09fae49cab0d688940e6406a25b6b5e83
+          path: m-os
+          persist-credentials: false
+      - name: Exercise public provider references against genuine Node.js release
+        shell: sh
+        working-directory: m-os
+        run: |
+          set -eu
+          [ "$(git rev-parse HEAD)" = e07fbec09fae49cab0d688940e6406a25b6b5e83 ] || exit 1
+          git clone --quiet -- https://github.com/massimilianonardi-ai/pkg-catalog.git "$RUNNER_TEMP/p3-node-catalog"
+          git -C "$RUNNER_TEMP/p3-node-catalog" checkout --quiet -b p3-node-catalog 4083aa19c4362f00ec62428a631edfa493faf7f0
+          ./m osarch update
+          conf=$(./m state-path system sys pkg conf)
+          command -p -- mkdir -p -- "$conf"
+          printf '%s\n' "$RUNNER_TEMP/p3-node-catalog" > "$conf/catalog"
+
+          ./m pkg install nodejs
+          node=$(./m pkg default nodejs)
+          case "$node" in nodejs@v26*!*) : ;; *) exit 10 ;; esac
+          [ -d "pkg/$node" ] && [ ! -L "pkg/$node" ] || exit 11
+          [ "$(./m node -p '21*2')" = 42 ] || exit 12
+
+          work=$(mktemp -d)
+          trap 'command -p -- rm -rf -- "$work"' 0
+          ./m pkg provider bind jsc nodejs "$node"
+          set +e
+          ./m pkg uninstall "$node" > "$work/bound-uninstall.err" 2>&1
+          status=$?
+          set -e
+          [ "$status" -eq 1 ] || exit 13
+          [ -d "pkg/$node" ] && [ ! -L "pkg/$node" ] || exit 14
+          [ "$(./m pkg default nodejs)" = "$node" ] || exit 15
+          [ "$(./m pkg provider bind jsc nodejs)" = "$node" ] || exit 16
+          [ "$(./m node -p '6*7')" = 42 ] || exit 17
+
+          ./m pkg provider bind -u -- jsc nodejs
+          ./m pkg default -u -- nodejs
+          ./m pkg provider default nodejs "$node"
+          [ "$(./m pkg provider default nodejs)" = "$node" ] || exit 18
+          [ "$(./m pkg requirement resolve nodejs '=26')" = "$node" ] || exit 19
+
+          set +e
+          ./m pkg requirement resolve nodejs '=99' > "$work/incompatible.err" 2>&1
+          status=$?
+          set -e
+          [ "$status" -eq 1 ] || exit 20
+
+          set +e
+          ./m pkg uninstall "$node" > "$work/default-uninstall.err" 2>&1
+          status=$?
+          set -e
+          [ "$status" -eq 1 ] || exit 21
+          [ -d "pkg/$node" ] && [ ! -L "pkg/$node" ] || exit 22
+          [ "$(./m pkg provider default nodejs)" = "$node" ] || exit 23
+          [ "$(./m node -p '21*2')" = 42 ] || exit 24
+
+          ./m pkg provider default -u -- nodejs
+          ./m pkg default "$node"
+          [ "$(./m pkg default nodejs)" = "$node" ] || exit 25
+          ./m pkg uninstall "$node"
+          [ ! -e "pkg/$node" ] && [ ! -L "pkg/$node" ] || exit 26
+          if ./m pkg versions nodejs > "$work/after.txt" 2>&1; then exit 27; fi
+
+          echo 'PASS: P3 genuine Node provider binding/default reference protection, incompatible requirement fail-closed, state preservation and clean uninstall'
