@@ -1,0 +1,77 @@
+name: P3 genuine two-provider web-control install and selection
+
+on:
+  push:
+    branches: [m-os-completion-p3-multiprovider-ci]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dual-web-control-provider:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: e07fbec09fae49cab0d688940e6406a25b6b5e83
+          path: m-os
+          persist-credentials: false
+      - name: Install two real public web-control providers and verify selection
+        shell: sh
+        working-directory: m-os
+        run: |
+          set -eu
+          [ "$(git rev-parse HEAD)" = e07fbec09fae49cab0d688940e6406a25b6b5e83 ] || exit 1
+          git clone --quiet -- https://github.com/massimilianonardi-ai/pkg-catalog.git "$RUNNER_TEMP/p3-web-catalog"
+          git -C "$RUNNER_TEMP/p3-web-catalog" checkout --quiet -b p3-web-catalog 4083aa19c4362f00ec62428a631edfa493faf7f0
+          ./m osarch update
+          conf=$(./m state-path system sys pkg conf)
+          command -p -- mkdir -p -- "$conf"
+          printf '%s\n' "$RUNNER_TEMP/p3-web-catalog" > "$conf/catalog"
+
+          ./m pkg install electron-web-control@v0.1.0 pwc-web-control@v0.1.0
+          for p in electron-web-control pwc-web-control
+          do
+            [ -d "pkg/$p@v0.1.0" ] && [ ! -L "pkg/$p@v0.1.0" ] || exit 10
+            [ "$(command -p -- cat "pkg/$p@v0.1.0/facility")" = 'web-control 1' ] || exit 11
+          done
+
+          set +e
+          ./m pkg requirement resolve web-control '=1' > "$RUNNER_TEMP/p3-no-global-default" 2>&1
+          st=$?
+          set -e
+          [ "$st" -eq 1 ] || exit 12
+
+          ./m pkg default -u -- electron-web-control
+          ./m pkg default -u -- pwc-web-control
+          ./m pkg provider default web-control electron-web-control@v0.1.0
+          [ "$(./m pkg requirement resolve web-control '=1')" = electron-web-control@v0.1.0 ] || exit 13
+
+          set +e
+          ./m pkg uninstall electron-web-control@v0.1.0 > "$RUNNER_TEMP/p3-protected-uninstall" 2>&1
+          st=$?
+          set -e
+          [ "$st" -eq 1 ] || exit 14
+          [ -d pkg/electron-web-control@v0.1.0 ] || exit 15
+          [ "$(./m pkg provider default web-control)" = electron-web-control@v0.1.0 ] || exit 16
+
+          ./m pkg provider default web-control pwc-web-control@v0.1.0
+          [ "$(./m pkg requirement resolve web-control '=1')" = pwc-web-control@v0.1.0 ] || exit 17
+
+          set +e
+          ./m pkg requirement resolve web-control '=2' > "$RUNNER_TEMP/p3-incompatible" 2>&1
+          st=$?
+          set -e
+          [ "$st" -eq 1 ] || exit 18
+
+          ./m pkg uninstall electron-web-control@v0.1.0
+          [ ! -e pkg/electron-web-control@v0.1.0 ] || exit 19
+          [ -d pkg/pwc-web-control@v0.1.0 ] || exit 20
+          ./m pkg provider default -u -- web-control
+          ./m pkg uninstall pwc-web-control@v0.1.0
+          [ ! -e pkg/pwc-web-control@v0.1.0 ] || exit 21
+
+          echo 'PASS: P3 genuine two-provider web-control installs, facility selection, incompatible rejection, protected and clean uninstall'
