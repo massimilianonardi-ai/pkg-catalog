@@ -1,0 +1,32 @@
+name: P3 pinned facility provider exact-selector real CLI regression
+
+on:
+  push:
+    branches: [m-os-completion-p3-selector-ci]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-provider:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 49b1d8f47964b8b69d19f0c4a00284d1217035b2
+          path: m-os
+          persist-credentials: false
+      - name: Exercise real public pinned and unpinned facility selectors
+        shell: sh
+        working-directory: m-os
+        run: |
+          set -eu
+          [ "$(git rev-parse HEAD)" = 49b1d8f47964b8b69d19f0c4a00284d1217035b2 ] || exit 1
+          /bin/sh .github/scripts/m-pkg-p3-pinned-selector.sh
