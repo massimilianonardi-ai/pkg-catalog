@@ -32,7 +32,12 @@ jobs:
           command -p -- mkdir -p -- "$conf"
           printf '%s\n' "$RUNNER_TEMP/p3-web-catalog" > "$conf/catalog"
 
-          ./m pkg install electron-web-control@v0.1.0 pwc-web-control@v0.1.0
+          # Both published releases expose an ordinary package command named
+          # web-control-service. Preserve its single owner by explicitly freeing
+          # the first package default before selecting the second package.
+          ./m pkg install electron-web-control@v0.1.0
+          ./m pkg default -u -- electron-web-control
+          ./m pkg install pwc-web-control@v0.1.0
           for p in electron-web-control pwc-web-control
           do
             [ -d "pkg/$p@v0.1.0" ] && [ ! -L "pkg/$p@v0.1.0" ] || exit 10
