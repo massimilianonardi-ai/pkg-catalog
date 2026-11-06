@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: e07fbec09fae49cab0d688940e6406a25b6b5e83
+          ref: 91e1057663a38650cc4906365c2f5e4f4a4319da
           path: m-os
           persist-credentials: false
       - name: Install two real public web-control providers and verify selection
@@ -24,7 +24,7 @@ jobs:
         working-directory: m-os
         run: |
           set -eu
-          [ "$(git rev-parse HEAD)" = e07fbec09fae49cab0d688940e6406a25b6b5e83 ] || exit 1
+          [ "$(git rev-parse HEAD)" = 91e1057663a38650cc4906365c2f5e4f4a4319da ] || exit 1
           git clone --quiet -- https://github.com/massimilianonardi-ai/pkg-catalog.git "$RUNNER_TEMP/p3-web-catalog"
           git -C "$RUNNER_TEMP/p3-web-catalog" checkout --quiet -b p3-web-catalog 4083aa19c4362f00ec62428a631edfa493faf7f0
           ./m osarch update
