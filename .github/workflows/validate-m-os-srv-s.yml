@@ -36,13 +36,33 @@ jobs:
             os: macos-latest
             workflow: m-srv-host-user-local.yml
     steps:
-      - name: Checkout real m-os S branch at an exact revision
+      - name: Checkout pinned current m-os master
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: e07fbec09fae49cab0d688940e6406a25b6b5e83
+          fetch-depth: 0
+          path: m-os
+          persist-credentials: false
+      - name: Checkout pinned S candidate without publishing it
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
           ref: d8f96689e3b288ea56cc7ab4da96a0a14c62adec
-          path: m-os
+          fetch-depth: 0
+          path: m-os-s
           persist-credentials: false
+      - name: Merge exact S and master revisions only in CI workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C m-os fetch ../m-os-s d8f96689e3b288ea56cc7ab4da96a0a14c62adec
+          git -C m-os -c user.name=RumiAI-CI -c user.email=ci@example.invalid \
+            merge --no-ff --no-edit FETCH_HEAD
+          git -C m-os merge-base --is-ancestor e07fbec09fae49cab0d688940e6406a25b6b5e83 HEAD
+          git -C m-os merge-base --is-ancestor d8f96689e3b288ea56cc7ab4da96a0a14c62adec HEAD
+          printf 'PASS: exact-source local master+S merge composition\n'
+          git -C m-os log -1 --format='%H %P'
       - name: Run the original S workflow's public-command script
         shell: bash
         working-directory: m-os
