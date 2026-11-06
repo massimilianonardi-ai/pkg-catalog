@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 91e1057663a38650cc4906365c2f5e4f4a4319da
+          ref: fbf6873a1a6f0d0f70bb2d69247572c4a760c589
           path: m-os
           persist-credentials: false
       - name: Install two real public web-control providers and verify selection
@@ -28,7 +28,7 @@ jobs:
         working-directory: m-os
         run: |
           set -eu
-          [ "$(git rev-parse HEAD)" = 91e1057663a38650cc4906365c2f5e4f4a4319da ] || exit 1
+          [ "$(git rev-parse HEAD)" = fbf6873a1a6f0d0f70bb2d69247572c4a760c589 ] || exit 1
           git clone --quiet -- https://github.com/massimilianonardi-ai/pkg-catalog.git "$RUNNER_TEMP/p3-web-catalog"
           git -C "$RUNNER_TEMP/p3-web-catalog" checkout --quiet -b p3-web-catalog 4083aa19c4362f00ec62428a631edfa493faf7f0
           ./m osarch update
@@ -58,6 +58,8 @@ jobs:
           ./m pkg default -u -- pwc-web-control
           ./m pkg provider default web-control electron-web-control@v0.1.0
           [ "$(./m pkg requirement resolve web-control '=1')" = electron-web-control@v0.1.0 ] || exit 13
+          [ -L bin/ext/web-control ] || exit 22
+          [ "$(command -p -- readlink bin/ext/web-control)" = '../../pkg/electron-web-control@v0.1.0/facility-cmd/web-control/web-control' ] || exit 23
 
           set +e
           ./m pkg uninstall electron-web-control@v0.1.0 > "$RUNNER_TEMP/p3-protected-uninstall" 2>&1
@@ -69,6 +71,8 @@ jobs:
 
           ./m pkg provider default web-control pwc-web-control@v0.1.0
           [ "$(./m pkg requirement resolve web-control '=1')" = pwc-web-control@v0.1.0 ] || exit 17
+          [ -L bin/ext/web-control ] || exit 24
+          [ "$(command -p -- readlink bin/ext/web-control)" = '../../pkg/pwc-web-control@v0.1.0/facility-cmd/web-control/web-control' ] || exit 25
 
           set +e
           ./m pkg requirement resolve web-control '=2' > "$RUNNER_TEMP/p3-incompatible" 2>&1
@@ -80,6 +84,7 @@ jobs:
           [ ! -e pkg/electron-web-control@v0.1.0 ] || exit 19
           [ -d pkg/pwc-web-control@v0.1.0 ] || exit 20
           ./m pkg provider default -u -- web-control
+          [ ! -e bin/ext/web-control ] && [ ! -L bin/ext/web-control ] || exit 26
           ./m pkg uninstall pwc-web-control@v0.1.0
           [ ! -e pkg/pwc-web-control@v0.1.0 ] || exit 21
 
