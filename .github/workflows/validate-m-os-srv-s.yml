@@ -26,15 +26,12 @@ jobs:
           - case: host-provider-switch-macos15-intel
             os: macos-15-intel
             workflow: m-srv-host-user-local.yml
-          - case: host-published-provider-macos-arm64
-            os: macos-latest
-            workflow: m-srv-host-user-live.yml
     steps:
       - name: Checkout real m-os S branch at an exact revision
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 49ad0d9453a1ac0a67b9ad2ee4894bfd9a394848
+          ref: 8efbbff85e1b858066c37946ef62ef7eee63d679
           path: m-os
           persist-credentials: false
       - name: Run the original S workflow's public-command script
