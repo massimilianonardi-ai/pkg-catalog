@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: f31171aa1966adc96863a57676efca36ce6d75c5
+          ref: b6f69d554d46ff4d9b67b86a10303615e381096b
           path: m-os
           persist-credentials: false
       - name: Verify exact P3 pinned selector source
@@ -30,7 +30,7 @@ jobs:
         working-directory: m-os
         run: |
           set -eu
-          [ "$(git rev-parse HEAD)" = f31171aa1966adc96863a57676efca36ce6d75c5 ]
+          [ "$(git rev-parse HEAD)" = b6f69d554d46ff4d9b67b86a10303615e381096b ]
           /bin/sh .github/scripts/m-pkg-p3-pinned-selector.sh
   provider-versions:
     strategy:
@@ -43,7 +43,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: f31171aa1966adc96863a57676efca36ce6d75c5
+          ref: b6f69d554d46ff4d9b67b86a10303615e381096b
           path: m-os
           persist-credentials: false
       - name: Verify genuine multi-version provider selection and cleanup
@@ -51,7 +51,7 @@ jobs:
         working-directory: m-os
         run: |
           set -eu
-          [ "$(git rev-parse HEAD)" = f31171aa1966adc96863a57676efca36ce6d75c5 ]
+          [ "$(git rev-parse HEAD)" = b6f69d554d46ff4d9b67b86a10303615e381096b ]
           /bin/sh .github/scripts/m-pkg-p3-provider-versions.sh
   authentic-ambiguity:
     runs-on: ubuntu-latest
@@ -60,7 +60,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: f31171aa1966adc96863a57676efca36ce6d75c5
+          ref: b6f69d554d46ff4d9b67b86a10303615e381096b
           path: m-os
           persist-credentials: false
       - name: Verify ambiguity from two genuine providers and consumer
@@ -68,7 +68,7 @@ jobs:
         working-directory: m-os
         run: |
           set -eu
-          [ "$(git rev-parse HEAD)" = f31171aa1966adc96863a57676efca36ce6d75c5 ]
+          [ "$(git rev-parse HEAD)" = b6f69d554d46ff4d9b67b86a10303615e381096b ]
           /bin/sh .github/scripts/m-pkg-p3-real-ambiguity.sh
   typed-environment:
     runs-on: ubuntu-latest
@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: f31171aa1966adc96863a57676efca36ce6d75c5
+          ref: b6f69d554d46ff4d9b67b86a10303615e381096b
           path: m-os
           persist-credentials: false
       - name: Verify real typed root-path reaches Chromium child
@@ -85,5 +85,5 @@ jobs:
         working-directory: m-os
         run: |
           set -eu
-          [ "$(git rev-parse HEAD)" = f31171aa1966adc96863a57676efca36ce6d75c5 ]
+          [ "$(git rev-parse HEAD)" = b6f69d554d46ff4d9b67b86a10303615e381096b ]
           /bin/sh .github/scripts/m-pkg-p3-typed-env.sh
