@@ -17,19 +17,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - case: offline-ubuntu
-            os: ubuntu-latest
-            workflow: m-srv-safety-public.yml
-          - case: offline-macos-arm64
-            os: macos-latest
-            workflow: m-srv-safety-public.yml
-          - case: provider-ubuntu
-            os: ubuntu-latest
-            workflow: m-srv-provider-live.yml
-          - case: host-user-ubuntu
+          - case: host-provider-switch-ubuntu
             os: ubuntu-latest
             workflow: m-srv-host-user-local.yml
-          - case: host-user-macos-arm64
+          - case: host-provider-switch-macos-arm64
             os: macos-latest
             workflow: m-srv-host-user-local.yml
     steps:
@@ -37,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 433f341351ab8240563189229b0b3dd0ea2dda1e
+          ref: 9a46f0f265b6345230005a2708ed9761ae9cf342
           path: m-os
           persist-credentials: false
       - name: Run the original S workflow's public-command script
