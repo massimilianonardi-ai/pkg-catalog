@@ -23,6 +23,12 @@ jobs:
           - case: host-provider-switch-macos-arm64
             os: macos-latest
             workflow: m-srv-host-user-local.yml
+          - case: host-provider-switch-macos15-intel
+            os: macos-15-intel
+            workflow: m-srv-host-user-local.yml
+          - case: host-published-provider-macos-arm64
+            os: macos-latest
+            workflow: m-srv-host-user-live.yml
     steps:
       - name: Checkout real m-os S branch at an exact revision
         uses: actions/checkout@v4
