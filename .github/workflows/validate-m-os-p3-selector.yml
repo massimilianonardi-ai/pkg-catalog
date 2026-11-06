@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 49b1d8f47964b8b69d19f0c4a00284d1217035b2
+          ref: d2d379992ecdf9aaaf48d38410263bb31e38b052
           path: m-os
           persist-credentials: false
       - name: Exercise real public pinned and unpinned facility selectors
@@ -28,5 +28,5 @@ jobs:
         working-directory: m-os
         run: |
           set -eu
-          [ "$(git rev-parse HEAD)" = 49b1d8f47964b8b69d19f0c4a00284d1217035b2 ] || exit 1
+          [ "$(git rev-parse HEAD)" = d2d379992ecdf9aaaf48d38410263bb31e38b052 ] || exit 1
           /bin/sh .github/scripts/m-pkg-p3-pinned-selector.sh
