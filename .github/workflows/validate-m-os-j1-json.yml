@@ -31,6 +31,8 @@ jobs:
         run: |
           set -eu
           [ "$(git rev-parse HEAD)" = ad9cb6534d3de62e2fb06a70b2243b27abf17355 ]
+          [ "$(git ls-tree HEAD bin/sys/json | awk '{print $1}')" = 100755 ]
+          [ "$(git ls-tree HEAD .github/scripts/m-json-public.sh | awk '{print $1}')" = 100755 ]
       - name: Exercise public JSON command and hostile PATH
         working-directory: m-os
         shell: sh
