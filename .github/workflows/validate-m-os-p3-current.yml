@@ -1,3 +1,4 @@
+# Runner refreshed after guarded cleanup preflight review
 name: P3 current-source real provider acceptance
 
 on:
