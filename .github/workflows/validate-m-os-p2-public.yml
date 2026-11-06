@@ -50,3 +50,82 @@ jobs:
           PY
           /bin/sh -n "$RUNNER_TEMP/m-os-p2-public.sh"
           /bin/sh "$RUNNER_TEMP/m-os-p2-public.sh"
+      - name: P2 public negative planner and historical-installed-root
+        shell: sh
+        working-directory: m-os
+        run: |
+          set -eu
+          # The preceding test installed real Node/mk/jsc and uninstalled mk/jsc.
+          # These temporary installed-provider fixtures exercise the real planner,
+          # not a replacement provider resolver or a claim of real artifact install.
+          ./m osarch update
+          target=$(./m osarch)
+          node=$(./m pkg default nodejs)
+          [ -d "pkg/$node" ] || exit 20
+          [ ! -e pkg/mk@v0.1.0 ] && [ ! -L pkg/mk@v0.1.0 ] || exit 21
+          provider_a="pkg/ci-p2-provider-a@1!$target"
+          provider_b="pkg/ci-p2-provider-b@1!$target"
+          historical="pkg/mk@v0.0.0"
+          cleanup()
+          {
+            command -p -- rm -rf -- "$provider_a" "$provider_b" "$historical"
+          }
+          trap cleanup 0
+          trap 'exit 3' HUP INT TERM
+          [ ! -e "$provider_a" ] && [ ! -e "$provider_b" ] || exit 22
+          command -p -- mkdir -- "$provider_a" "$provider_b"
+          printf 'nodejs 26\n' > "$provider_a/facility"
+          printf 'nodejs 26\n' > "$provider_b/facility"
+
+          set +e
+          ./m pkg depend mk@v0.1.0 > p2-ambig-depend.out 2>&1
+          status=$?
+          set -e
+          [ "$status" -eq 1 ] || exit 23
+          command -p -- grep 'provider-ambiguous' p2-ambig-depend.out
+          command -p -- grep 'facility="nodejs"' p2-ambig-depend.out
+          command -p -- grep "ci-p2-provider-a@1!$target" p2-ambig-depend.out
+          command -p -- grep "ci-p2-provider-b@1!$target" p2-ambig-depend.out
+
+          set +e
+          ./m pkg install mk@v0.1.0 > p2-ambig-install.out 2>&1
+          status=$?
+          set -e
+          [ "$status" -eq 1 ] || exit 24
+          command -p -- grep 'provider-ambiguous' p2-ambig-install.out
+          [ ! -e pkg/mk@v0.1.0 ] && [ ! -L pkg/mk@v0.1.0 ] || exit 25
+
+          command -p -- rm -rf -- "$provider_a" "$provider_b"
+
+          # The exact historical root version is absent from the live catalog.
+          # It already exists in the managed store and retains its own dependency.
+          # Installation must NOT rediscover its root via the remote release index.
+          command -p -- mkdir -- "$historical"
+          printf 'nodejs =26\n' > "$historical/dependency"
+          set +e
+          ./m pkg install mk@v0.0.0 > p2-historical.out 2>&1
+          status=$?
+          set -e
+          [ "$status" -eq 1 ] || exit 26
+          command -p -- grep 'already-installed' p2-historical.out
+          [ -d "$historical" ] && [ ! -L "$historical" ] || exit 27
+
+          # Malformed historical dependency must fail the real planner before
+          # installation, keep the existing concrete and leave no invocation
+          # staging directory. This tests planning cleanup, not download rollback.
+          printf 'not-a-valid-dependency\n' > "$historical/dependency"
+          set +e
+          ./m pkg install mk@v0.0.0 > p2-invalid-dependency.out 2>&1
+          status=$?
+          set -e
+          [ "$status" -eq 1 ] || exit 28
+          command -p -- grep 'dependency-planning-failed' p2-invalid-dependency.out
+          [ -d "$historical" ] && [ ! -L "$historical" ] || exit 29
+          [ "$(command -p -- cat -- "$historical/dependency")" = not-a-valid-dependency ] || exit 30
+          [ ! -e pkg/mk@v0.1.0 ] && [ ! -L pkg/mk@v0.1.0 ] || exit 31
+          temp=$(./m state-path system sys pkg tmp)
+          for entry in "$temp"/install2-*
+          do
+            [ ! -e "$entry" ] && [ ! -L "$entry" ] || exit 32
+          done
+          echo 'PASS: P2 real public ambiguity, historical-root identity and planning-failure cleanup'
