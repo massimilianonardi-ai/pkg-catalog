@@ -1,3 +1,4 @@
+# Runner refreshed after JSON cleanup and manual corrections
 name: J1 exact-source JSON command acceptance
 
 on:
