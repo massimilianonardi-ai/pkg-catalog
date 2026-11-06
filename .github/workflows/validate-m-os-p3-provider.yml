@@ -1,0 +1,169 @@
+name: P3 exact-commit public pkg provider and uninstall validation
+
+on:
+  push:
+    branches: [m-os-completion-p3-ci]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provider-config-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: a08f4730323be108893b9a3327e63a36711f0158
+          path: m-os
+          persist-credentials: false
+      - name: Pin real catalog revision and prepare m state
+        shell: sh
+        working-directory: m-os
+        run: |
+          set -eu
+          [ "$(git rev-parse HEAD)" = a08f4730323be108893b9a3327e63a36711f0158 ] || exit 1
+          git clone --quiet -- https://github.com/massimilianonardi-ai/pkg-catalog.git "$RUNNER_TEMP/p3-catalog"
+          git -C "$RUNNER_TEMP/p3-catalog" checkout --quiet -b p3-ci-pinned 4083aa19c4362f00ec62428a631edfa493faf7f0
+          ./m osarch update
+          conf=$(./m state-path system sys pkg conf)
+          command -p -- mkdir -p -- "$conf"
+          printf '%s\n' "$RUNNER_TEMP/p3-catalog" > "$conf/catalog"
+
+      - name: Test public provider configuration before any package installation
+        shell: sh
+        working-directory: m-os
+        run: |
+          set -eux
+          ./m osarch update
+          if ! ./m pkg provider default nodejs nodejs
+          then
+            echo 'FAIL: fresh public provider default set returned nonzero' >&2
+            ./m sh -c '
+              . "$m_LIB_DIR/sys/sh/core.lib.sh" || exit 1
+              loadsyslib "pkg/pkg-provider" || exit 2
+              set -x
+              _pkg_provider_default nodejs nodejs
+            ' || :
+            exit 11
+          fi
+          [ "$(./m pkg provider default nodejs)" = nodejs ]
+          ./m pkg provider bind jsc nodejs nodejs
+          [ "$(./m pkg provider bind jsc nodejs)" = nodejs ]
+          ./m pkg provider bind -u -- jsc nodejs
+          ./m pkg provider default -u -- nodejs
+          if ./m pkg provider default nodejs >/dev/null 2>&1; then exit 12; fi
+          echo 'PASS: independent public provider selector configuration'
+  pkg-public-lifecycle:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: a08f4730323be108893b9a3327e63a36711f0158
+          path: m-os
+          persist-credentials: false
+      - name: Pin real catalog revision and prepare m state
+        shell: sh
+        working-directory: m-os
+        run: |
+          set -eu
+          [ "$(git rev-parse HEAD)" = a08f4730323be108893b9a3327e63a36711f0158 ] || exit 1
+          git clone --quiet -- https://github.com/massimilianonardi-ai/pkg-catalog.git "$RUNNER_TEMP/p3-catalog"
+          git -C "$RUNNER_TEMP/p3-catalog" checkout --quiet -b p3-ci-pinned 4083aa19c4362f00ec62428a631edfa493faf7f0
+          ./m osarch update
+          conf=$(./m state-path system sys pkg conf)
+          command -p -- mkdir -p -- "$conf"
+          printf '%s\n' "$RUNNER_TEMP/p3-catalog" > "$conf/catalog"
+
+      - name: Verify real public package dependency/provider/uninstall lifecycle
+        shell: sh
+        working-directory: m-os
+        run: |
+          set -eux
+          ./m osarch update
+          [ ! -d pkg ] || [ -z "$(ls -A pkg)" ]
+
+          # Catalog and dependency resolution without any package installed.
+          [ "$(./m pkg requirement list mk@v0.1.0)" = 'nodejs =26' ]
+          [ "$(./m pkg requirement list jsc@v0.1.0)" = 'nodejs =26' ]
+          ./m pkg depend mk@v0.1.0 jsc@v0.1.0 > depend-before.txt
+          grep '^nodejs@v26' depend-before.txt
+          [ "$(wc -l < depend-before.txt | tr -d ' ')" -eq 1 ]
+
+          # Dependency-first install, package/default identity and managed execution.
+          ./m pkg install mk@v0.1.0 jsc@v0.1.0
+          [ "$(./m pkg default mk)" = mk@v0.1.0 ]
+          [ "$(./m pkg default jsc)" = jsc@v0.1.0 ]
+          node_concrete=$(./m pkg default nodejs)
+          case "$node_concrete" in nodejs@v26*) : ;; *) exit 10 ;; esac
+          ./m node -p '21*2' > node-result.txt
+          [ "$(cat node-result.txt)" = 42 ]
+
+          # A non-package requirement must not implicitly pick a provider.
+          if ./m pkg requirement resolve nodejs '=26' >/dev/null 2>&1
+          then
+            echo 'FAIL: implicit global provider selection' >&2
+            exit 11
+          fi
+          # Package-default 'node' already owns the public command.
+          # Facility-default publication must reject that foreign projection.
+          if ./m pkg provider default nodejs nodejs >/dev/null 2>&1
+          then
+            echo 'FAIL: provider default stole the package-owned command' >&2
+            exit 19
+          fi
+          [ "$(./m pkg default nodejs)" = "$node_concrete" ]
+          if ./m pkg provider default nodejs >/dev/null 2>&1; then exit 20; fi
+
+          # A deliberate owner transition frees the command; a pinned
+          # facility default can now publish it without losing the provider.
+          ./m pkg default -u -- nodejs
+          ./m pkg provider default nodejs "$node_concrete"
+          [ "$(./m pkg provider default nodejs)" = "$node_concrete" ]
+          [ "$(./m pkg requirement resolve nodejs '=26')" = "$node_concrete" ]
+          ./m pkg provider bind jsc nodejs "$node_concrete"
+          [ "$(./m pkg provider bind jsc nodejs)" = "$node_concrete" ]
+
+          work=$(mktemp -d)
+          trap 'rm -rf -- "$work"' 0
+          printf '%s\n' 'const answer = 42;' > "$work/value.js"
+          printf '%s\n' '{"modules":[{"name":"demo","modules":[{"file":"value.js","exports":"answer"}]}]}' > "$work/modules.json"
+          ./m jsc "$work/modules.json" "$work/result.js"
+          ./m node -e 'if (require(process.argv[1]).answer !== 42) process.exit(1)' "$work/result.js"
+
+          # Provider selection removal changes global semantics without
+          # uninstalling a still-usable provider or its consumer.
+          ./m pkg provider bind -u -- jsc nodejs
+          if ./m pkg provider bind jsc nodejs >/dev/null 2>&1; then exit 12; fi
+          ./m pkg provider default -u -- nodejs
+          if ./m pkg requirement resolve nodejs '=26' >/dev/null 2>&1; then exit 13; fi
+          ./m pkg default "$node_concrete"
+          ./m jsc "$work/modules.json" "$work/recompiled.js"
+          [ -s "$work/recompiled.js" ]
+
+          # Repeating an explicit installed root must fail without replacing it.
+          if ./m pkg install mk@v0.1.0 >/dev/null 2>&1; then exit 21; fi
+          [ "$(./m pkg default mk)" = mk@v0.1.0 ]
+          ./m pkg uninstall jsc@v0.1.0 mk@v0.1.0
+          if ./m pkg versions mk >/dev/null 2>&1; then exit 14; fi
+          if ./m pkg versions jsc >/dev/null 2>&1; then exit 15; fi
+          if ./m pkg default mk >/dev/null 2>&1; then exit 16; fi
+          if ./m pkg default jsc >/dev/null 2>&1; then exit 17; fi
+          [ "$(./m pkg default nodejs)" = "$node_concrete" ]
+
+          ./m pkg uninstall "$node_concrete"
+          if ./m pkg versions nodejs >/dev/null 2>&1; then exit 18; fi
+          ./m pkg install mk@v0.1.0
+          [ "$(./m pkg default mk)" = mk@v0.1.0 ]
+          ./m node -p '6*7' > "$work/second-node.txt"
+          [ "$(cat "$work/second-node.txt")" = 42 ]
+
+          echo 'PASS: public pkg dependencies, provider settings, runtime and uninstall/reinstall'
