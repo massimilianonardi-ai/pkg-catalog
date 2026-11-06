@@ -1,0 +1,52 @@
+name: J1 exact-source JSON command acceptance
+
+on:
+  push:
+    branches: [m-os-completion-j1-ci]
+    paths:
+      - .github/workflows/validate-m-os-j1-json.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  json-public-and-corpus:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: d78167f440a888143f4924b62dcb3e4f9a068627
+          path: m-os
+          persist-credentials: false
+      - name: Verify exact J1 source revision
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          [ "$(git rev-parse HEAD)" = d78167f440a888143f4924b62dcb3e4f9a068627 ]
+      - name: Exercise public JSON command and hostile PATH
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          sh -n bin/sys/json
+          sh -n .github/scripts/m-json-public.sh
+          .github/scripts/m-json-public.sh
+      - name: Fetch pinned JSONTestSuite corpus
+        run: |
+          git clone --filter=blob:none https://github.com/nst/JSONTestSuite.git "$RUNNER_TEMP/JSONTestSuite"
+          git -C "$RUNNER_TEMP/JSONTestSuite" checkout --detach 1ef36fa01286573e846ac449e8683f8833c5b26a
+      - name: Validate exact JSONTestSuite test_parsing corpus
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          sh -n .github/scripts/m-json-test-parsing.sh
+          .github/scripts/m-json-test-parsing.sh "$RUNNER_TEMP/JSONTestSuite/test_parsing"
