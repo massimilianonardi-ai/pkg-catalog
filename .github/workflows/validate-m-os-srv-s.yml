@@ -23,6 +23,9 @@ jobs:
           - case: offline-safety-macos-arm64
             os: macos-latest
             workflow: m-srv-safety-public.yml
+          - case: offline-safety-macos15-intel
+            os: macos-15-intel
+            workflow: m-srv-safety-public.yml
           - case: published-provider-ubuntu
             os: ubuntu-latest
             workflow: m-srv-provider-live.yml
