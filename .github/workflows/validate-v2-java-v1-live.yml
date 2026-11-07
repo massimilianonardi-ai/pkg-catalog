@@ -1,0 +1,64 @@
+name: Validate real v1 Java catalog on autonomous v2 m
+
+on:
+  push:
+    branches: [pkg-schema-v2]
+    paths:
+      - 'v1/pkg/temurin/**'
+      - 'v1/pkg/maven/**'
+      - '.github/workflows/validate-v2-java-v1-live.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  java-v1-live:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact catalog revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: catalog
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact autonomous m runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 1e3a038a5abf6f8c176272d8e44464c842d3cefd
+          path: m-source
+          persist-credentials: false
+      - name: Checkout existing Java public-path permanent test
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/rumiai-tests
+          ref: 3f0eeb2db04ada295ee933ad6c0f4993c08c6ee5
+          path: tests
+          persist-credentials: false
+      - name: Prepare real m host and exact local v1 catalog
+        shell: sh
+        run: |
+          set -eu
+          [ "$(git -C catalog rev-parse HEAD)" = "$GITHUB_SHA" ]
+          # Local snapshot clones must have a branch rather than a detached HEAD.
+          git -C catalog switch -c ci-java-v1
+          ./m-source/m osarch update
+          conf=$(./m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+      - name: Run real Java provider and Maven consumer via rumiai-test
+        shell: sh
+        env:
+          RUMIAI_TEST_M_OS_ROOT: ${{ github.workspace }}/m-source
+          RUMIAI_TEST_PKG_CATALOG_ROOT: ${{ github.workspace }}/catalog
+        run: |
+          set -eu
+          ./tests/rumiai-test --list m-os/pkg-java-v1
+          ./tests/rumiai-test m-os/pkg-java-v1

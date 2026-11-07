@@ -1,0 +1,303 @@
+name: Validate v2 direct package entrypoints
+
+on:
+  push:
+    branches: [pkg-schema-v2]
+    paths:
+      - 'v2/**'
+      - '.github/workflows/validate-v2-m.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  v2-jq:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - name: Checkout v2 catalog branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Checkout exact autonomous v2 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          path: m-source
+          persist-credentials: false
+      - name: Run real package installation from exact v2 snapshot
+        shell: sh
+        run: |
+          set -eux
+          ./m-source/m osarch update
+          conf=$(./m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
+          ./m-source/m sh -c '
+            . "$m_LIB_DIR/sys/sh/core.lib.sh" || exit 1
+            loadsyslib "pkg/pkg-catalog" || exit 1
+            work=$(mktemp -d) || exit 1
+            cache=$(mktemp -d) || exit 1
+            pkg_catalog_init selected revision "$work" "$cache" || exit 1
+            [ "$revision" = "$GITHUB_SHA" ] || exit 1
+            [ -d "${selected%/v1}/v2/pkg/jq" ] || exit 1
+            rm -rf -- "$work" "$cache"
+          '
+          echo 'CHECKPOINT: v2 catalog snapshot verified'
+          installed=
+          # Retry transient upstream network failures; integrity, malformed
+          # definitions and failed execution assertions are never retried.
+          for attempt in 1 2 3
+          do
+            if ./m-source/m pkg install jq@jq-1.8.2
+            then
+              installed=yes
+              break
+            fi
+            [ "$attempt" -lt 3 ] || break
+            sleep 4
+          done
+          [ "$installed" = yes ]
+          echo 'CHECKPOINT: v2 pkg install completed'
+          find m-source/pkg -maxdepth 4 -type l -o -name schema | sort
+          concrete=$(./m-source/m pkg default jq)
+          case "$concrete" in jq@jq-1.8.2!*) : ;; *) exit 1 ;; esac
+          [ "$(cat "m-source/pkg/$concrete/schema")" = v2 ]
+          case "$(readlink "m-source/pkg/$concrete/link/bin/jq")" in ../../root/jq-*) : ;; *) exit 1 ;; esac
+          osarch=${concrete##*!}
+          test -L "m-source/bin/ext-$osarch/jq"
+          [ "$(./m-source/m jq -n '21*2')" = 42 ]
+          [ "$(readlink "m-source/pkg/$concrete/link/bin/jq-wrapped")" = "../../cmd/jq-wrapped" ]
+          case "$(readlink "m-source/pkg/$concrete/link/target/jq-wrapped")" in ../../root/jq-*) : ;; *) exit 1 ;; esac
+          test -L "m-source/bin/ext-$osarch/jq-wrapped"
+          [ "$(./m-source/m jq-wrapped '21*2')" = 42 ]
+          CONCRETE="$concrete" ./m-source/m sh -ec '
+            . "$m_LIB_DIR/sys/sh/core.lib.sh"
+            context "pkg=$CONCRETE"
+            [ "$(command -v jq)" = "$m_PKG_DIR/$CONCRETE/link/bin/jq" ]
+            [ "$(command -v jq-wrapped)" = "$m_PKG_DIR/$CONCRETE/link/bin/jq-wrapped" ]
+            [ "$(jq -n "6*7")" = 42 ]
+            [ "$(jq-wrapped "6*7")" = 42 ]
+            context
+          '
+          echo 'PASS: real public v2 jq install, direct/wrapped commands and context'
+          CONCRETE="$concrete" ./m-source/m sh m-source/.github/scripts/pkg-v2-coexistence-test.sh
+
+  v2-libraries:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - name: Checkout pinned v2 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          path: m-source
+          persist-credentials: false
+      - name: Set up Java for real JAR consumer
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Integrate library-only v2 package and load sh/JAR exports
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m osarch update
+          ./m-source/m sh m-source/.github/scripts/pkg-v2-libraries-test.sh
+
+  v1-regression:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - name: Checkout pinned v2 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          path: m-source
+          persist-credentials: false
+      - name: Install and execute real v1 jq with v2-capable runtime
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m osarch update
+          conf=$(./m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' 'https://github.com/massimilianonardi-ai/pkg-catalog.git' > "$conf/catalog"
+          installed=
+          for attempt in 1 2 3
+          do
+            if ./m-source/m pkg install jq@jq-1.8.2
+            then
+              installed=yes
+              break
+            fi
+            [ "$attempt" -lt 3 ] || break
+            sleep 4
+          done
+          [ "$installed" = yes ]
+          concrete=$(./m-source/m pkg default jq)
+          case "$concrete" in jq@jq-1.8.2!*) : ;; *) exit 1 ;; esac
+          [ ! -e "m-source/pkg/$concrete/schema" ] && [ ! -L "m-source/pkg/$concrete/schema" ]
+          [ -f "m-source/pkg/$concrete/cmd/jq" ]
+          [ -L "m-source/pkg/$concrete/link/jq" ]
+          [ "$(./m-source/m jq -n '6*7')" = 42 ]
+          echo 'PASS: unmodified v1 package installs and launches on upgraded m'
+
+  v2-facility-commands:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - name: Checkout v2 catalog contract
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout facility-parameter runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          path: m-source
+          persist-credentials: false
+      - name: Validate central facility nodejs contract with provider bin parameter
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m osarch update
+          CATALOG_V2="$GITHUB_WORKSPACE/v2" ./m-source/m sh m-source/.github/scripts/pkg-v2-facility-command-test.sh
+
+  v2-service-entry:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - name: Checkout v2 service contracts
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact v2 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          path: m-source
+          persist-credentials: false
+      - name: Validate service start through selected package link/bin
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m osarch update
+          CATALOG_V2="$GITHUB_WORKSPACE/v2" ./m-source/m sh m-source/.github/scripts/pkg-v2-service-entry-test.sh
+
+
+  v2-global-environment:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    steps:
+      - name: Checkout central v2 facility contract
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact v2 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          path: m-source
+          persist-credentials: false
+      - name: Validate generic and platform-specific provider global environment
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m osarch update
+          CATALOG_V2="$GITHUB_WORKSPACE/v2" ./m-source/m sh m-source/.github/scripts/pkg-v2-global-environment-test.sh
+
+  v1-v2-jq-reinstall:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact v2 catalog
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact v1-only catalog snapshot
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 7892040e906723ef6641df88a03964c041cee9bc
+          path: v1-catalog
+          persist-credentials: false
+      - name: Checkout exact v2 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          path: m-source
+          persist-credentials: false
+      - name: Exercise real v1 uninstall and exact v2 reinstall on the same target
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m osarch update
+          # actions/checkout with an exact SHA leaves this source detached.
+          # Give the unchanged v1 snapshot a local branch so its own
+          # cache checkout has a valid pull/FF upstream; do not alter commits.
+          git -C v1-catalog switch -c ci-v1-snapshot
+          conf=$(./m-source/m state-path system sys pkg conf)
+          cache=$(./m-source/m state-path system sys pkg cache)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/v1-catalog" > "$conf/catalog"
+          ./m-source/m pkg install jq@jq-1.8.2
+          first=$(./m-source/m pkg default jq)
+          [ -d "m-source/pkg/$first" ]
+          [ ! -e "m-source/pkg/$first/schema" ]
+          [ "$(./m-source/m jq -n '6*7')" = 42 ]
+          ./m-source/m pkg uninstall jq@jq-1.8.2
+          [ ! -e "m-source/pkg/$first" ]
+          echo 'CHECKPOINT: v1 concrete uninstalled through public pkg'
+          # A switched catalog origin needs a fresh derived cache; installed
+          # package/state content is never copied, reset or synthesized.
+          rm -rf -- "$cache/catalog"
+          printf '%s\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
+          ./m-source/m pkg install jq@jq-1.8.2
+          second=$(./m-source/m pkg default jq)
+          [ "$second" = "$first" ]
+          [ "$(cat "m-source/pkg/$second/schema")" = v2 ]
+          [ -L "m-source/pkg/$second/link/bin/jq" ]
+          [ "$(./m-source/m jq -n '21*2')" = 42 ]
+          [ "$(./m-source/m jq-wrapped '21*2')" = 42 ]
+          ./m-source/m pkg default -u jq
+          ./m-source/m pkg default jq@jq-1.8.2
+          [ "$(./m-source/m jq -n '6*7')" = 42 ]
+          echo 'PASS: real v1-to-v2 exact jq reinstall and public default restoration'

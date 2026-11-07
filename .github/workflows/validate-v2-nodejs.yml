@@ -1,0 +1,112 @@
+name: Validate real v2 Node.js facility provider
+
+on:
+  push:
+    branches: [pkg-schema-v2]
+    paths:
+      - 'v2/pkg/nodejs/**'
+      - '.github/workflows/validate-v2-nodejs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-nodejs-provider:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - name: Checkout catalog
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact v1-only catalog snapshot
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 7892040e906723ef6641df88a03964c041cee9bc
+          path: v1-catalog
+          persist-credentials: false
+      - name: Checkout exact m runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 8fb1db493a3265f77bb36ac604a2a1a495a4d448
+          path: m-source
+          persist-credentials: false
+      - name: Install and use the real Node.js provider
+        shell: sh
+        run: |
+          set -eux
+          ./m-source/m osarch update
+          conf=$(./m-source/m state-path system sys pkg conf)
+          cache=$(./m-source/m state-path system sys pkg cache)
+          osarch=$(./m-source/m sh -ec '. "$m_LIB_DIR/sys/sh/core.lib.sh"; loadsyslib "osarch"; printf "%s" "$m_OSARCH"')
+          mkdir -p -- "$conf"
+          # Test real exact v1 -> v2 migration, without rewriting an
+          # installed concrete or resetting managed mutable state.
+          git -C v1-catalog switch -c ci-v1-snapshot
+          printf '%s\n' "$GITHUB_WORKSPACE/v1-catalog" > "$conf/catalog"
+          ./m-source/m pkg install nodejs@v26.8.2
+          v1_concrete=$(./m-source/m pkg default nodejs)
+          [ "$v1_concrete" = "nodejs@v26.8.2!$osarch" ]
+          [ ! -e "m-source/pkg/$v1_concrete/schema" ]
+          [ "$(./m-source/m node -p '6*7')" = 42 ]
+          expected_home=$(./m-source/m state-path user pkg nodejs home)
+          [ "$(./m-source/m node -p 'process.env.HOME')" = "$expected_home" ]
+          ./m-source/m node -e 'const fs=require("node:fs");fs.mkdirSync(process.env.HOME,{recursive:true});fs.writeFileSync(process.env.HOME+"/v1-v2-migration-marker","v1-state-preserved")'
+          ./m-source/m pkg uninstall nodejs@v26.8.2
+          [ ! -e "m-source/pkg/$v1_concrete" ]
+          [ -f "$expected_home/v1-v2-migration-marker" ]
+          echo 'CHECKPOINT: real v1 Node.js removed without deleting managed HOME'
+          # Refresh only the derived catalog cache when switching snapshots;
+          # keep the same target, installed-package store and state tree.
+          rm -rf -- "$cache/catalog"
+          printf '%s\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
+          # Exercise the real upstream Node.js index and selection of
+          # a stable release within the catalog's configured major.
+          ./m-source/m pkg depend nodejs
+          echo 'CHECKPOINT: live Node.js index/resolve through pkg depend'
+          ./m-source/m pkg install nodejs@v26.8.2
+          concrete=$(./m-source/m pkg default nodejs)
+          [ "$concrete" = "nodejs@v26.8.2!$osarch" ]
+          [ "$(cat "m-source/pkg/$concrete/schema")" = v2 ]
+          [ "$(readlink "m-source/pkg/$concrete/link/bin/node")" = ../../cmd/node ]
+          [ "$(readlink "m-source/pkg/$concrete/link/target/node")" = ../../root/bin/node ]
+          [ "$(./m-source/m node -p '6*7')" = 42 ]
+          [ "$(./m-source/m node -e 'process.stdout.write(require("node:fs").readFileSync(process.env.HOME+"/v1-v2-migration-marker","utf8"))')" = v1-state-preserved ]
+          [ -n "$(./m-source/m npm --version)" ]
+          [ -n "$(./m-source/m npx --version)" ]
+          expected_home=$(./m-source/m state-path user pkg nodejs home)
+          [ "$(./m-source/m node -p 'process.env.HOME')" = "$expected_home" ]
+          CONCRETE="$concrete" ./m-source/m sh -ec '
+            . "$m_LIB_DIR/sys/sh/core.lib.sh"
+            context "pkg=$CONCRETE"
+            [ "$(command -v node)" = "$m_PKG_DIR/$CONCRETE/link/bin/node" ]
+            [ "$(node -p "6*7")" = 42 ]
+            context
+          '
+          ./m-source/m pkg default -u nodejs
+          ./m-source/m pkg provider default nodejs "$concrete"
+          [ "$(./m-source/m node -p '6*7')" = 42 ]
+          [ "$(./m-source/m pkg provider default nodejs)" = "$concrete" ]
+          ./m-source/m pkg provider default -u nodejs
+          # Restore an explicit package default before using the public
+          # Node.js command again; no ambient host Node.js is consulted.
+          ./m-source/m pkg default nodejs@v26.8.2
+          # Use the real provider to create managed mutable package HOME data.
+          # Uninstalling and reinstalling the exact artifact must not erase it.
+          ./m-source/m node -e 'const fs = require("node:fs");fs.mkdirSync(process.env.HOME,{recursive:true});fs.writeFileSync(process.env.HOME+"/v2-reinstall-marker","state-preserved")'
+          [ -f "$expected_home/v2-reinstall-marker" ]
+          ./m-source/m pkg uninstall nodejs@v26.8.2
+          [ -f "$expected_home/v2-reinstall-marker" ]
+          ./m-source/m pkg install nodejs@v26.8.2
+          [ "$(cat "m-source/pkg/$concrete/schema")" = v2 ]
+          [ "$(./m-source/m node -e 'process.stdout.write(require("node:fs").readFileSync(process.env.HOME+"/v2-reinstall-marker","utf8"))')" = state-preserved ]
+          [ "$(./m-source/m node -e 'process.stdout.write(require("node:fs").readFileSync(process.env.HOME+"/v1-v2-migration-marker","utf8"))')" = v1-state-preserved ]
+          rm -f -- "$expected_home/v2-reinstall-marker" "$expected_home/v1-v2-migration-marker"
+          echo 'PASS: real Node.js v1-to-v2 migration, live index, commands, provider and preserved HOME across exact reinstalls'
