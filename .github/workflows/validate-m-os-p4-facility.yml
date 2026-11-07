@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: c255efe24a34f1af655fe9310b7f1c2a36069c4d
+          ref: 6db5531de2956e64f0f57d0303508fb759f3cd1d
           path: m-os
           persist-credentials: false
       - name: Pin exact P4 product source and prepare its runtime
@@ -31,7 +31,7 @@ jobs:
         working-directory: m-os
         run: |
           set -eu
-          [ "$(git rev-parse HEAD)" = c255efe24a34f1af655fe9310b7f1c2a36069c4d ] || exit 1
+          [ "$(git rev-parse HEAD)" = 6db5531de2956e64f0f57d0303508fb759f3cd1d ] || exit 1
           ./m osarch update
       - name: Verify derived facility map ordering and offline recovery
         shell: sh
