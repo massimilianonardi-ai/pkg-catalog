@@ -2,7 +2,7 @@ name: Validate real v2 Node.js facility provider
 
 on:
   push:
-    branches: [pkg-schema-v2]
+    branches: [pkg-schema-v2, codex/pkg-schema-v2-mainline-integration]
     paths:
       - 'v2/pkg/nodejs/**'
       - '.github/workflows/validate-v2-nodejs.yml'
@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 8fb1db493a3265f77bb36ac604a2a1a495a4d448
+          ref: 168b86561e8c34000756d54ff48975638a0df709
           path: m-source
           persist-credentials: false
       - name: Install and use the real Node.js provider
