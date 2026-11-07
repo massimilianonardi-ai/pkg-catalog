@@ -332,7 +332,7 @@ jobs:
           printf '%s\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
           ./m-source/m pkg install m-rsudo@v0.1.2
           concrete=$(./m-source/m pkg default m-rsudo)
-          case "$concrete" in m-rsudo@v0.1.2\!*) : ;; *) exit 1 ;; esac
+          [ "$concrete" = m-rsudo@v0.1.2 ]
           [ "$(cat "m-source/pkg/$concrete/schema")" = v2 ]
           for command in rsudo-admin rsudo rssh
           do
@@ -340,7 +340,7 @@ jobs:
             target=$(readlink "m-source/pkg/$concrete/link/bin/$command")
             case "$target" in ../../root/*) : ;; *) exit 1 ;; esac
             [ -x "m-source/pkg/$concrete/link/bin/$command" ]
-            test -L "m-source/bin/ext-${concrete##*!}/$command"
+            test -L "m-source/bin/ext/$command"
           done
           for library in rsudo.lib.sh rsudo-mod-fs.lib.sh rsudo-mod-exec.lib.sh
           do
