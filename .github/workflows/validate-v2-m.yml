@@ -29,7 +29,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          ref: 168b86561e8c34000756d54ff48975638a0df709
           path: m-source
           persist-credentials: false
       - name: Run real package installation from exact v2 snapshot
@@ -102,7 +102,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          ref: 168b86561e8c34000756d54ff48975638a0df709
           path: m-source
           persist-credentials: false
       - name: Set up Java for real JAR consumer
@@ -129,7 +129,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          ref: 168b86561e8c34000756d54ff48975638a0df709
           path: m-source
           persist-credentials: false
       - name: Install and execute real v1 jq with v2-capable runtime
@@ -176,7 +176,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          ref: 168b86561e8c34000756d54ff48975638a0df709
           path: m-source
           persist-credentials: false
       - name: Validate central facility nodejs contract with provider bin parameter
@@ -202,7 +202,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          ref: 168b86561e8c34000756d54ff48975638a0df709
           path: m-source
           persist-credentials: false
       - name: Validate service start through selected package link/bin
@@ -229,7 +229,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          ref: 168b86561e8c34000756d54ff48975638a0df709
           path: m-source
           persist-credentials: false
       - name: Validate generic and platform-specific provider global environment
@@ -262,7 +262,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          ref: 168b86561e8c34000756d54ff48975638a0df709
           path: m-source
           persist-credentials: false
       - name: Exercise real v1 uninstall and exact v2 reinstall on the same target
@@ -301,3 +301,50 @@ jobs:
           ./m-source/m pkg default jq@jq-1.8.2
           [ "$(./m-source/m jq -n '6*7')" = 42 ]
           echo 'PASS: real v1-to-v2 exact jq reinstall and public default restoration'
+
+
+  v2-m-rsudo-install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact v2 catalog
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact v2 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 168b86561e8c34000756d54ff48975638a0df709
+          path: m-source
+          persist-credentials: false
+      - name: Install and verify published m-rsudo v0.1.2 V2 links
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m osarch update
+          conf=$(./m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
+          ./m-source/m pkg install m-rsudo@v0.1.2
+          concrete=$(./m-source/m pkg default m-rsudo)
+          case "$concrete" in m-rsudo@v0.1.2\!*) : ;; *) exit 1 ;; esac
+          [ "$(cat "m-source/pkg/$concrete/schema")" = v2 ]
+          for command in rsudo-admin rsudo rssh
+          do
+            [ -L "m-source/pkg/$concrete/link/bin/$command" ]
+            target=$(readlink "m-source/pkg/$concrete/link/bin/$command")
+            case "$target" in ../../root/*) : ;; *) exit 1 ;; esac
+            [ -x "m-source/pkg/$concrete/link/bin/$command" ]
+            test -L "m-source/bin/ext-${concrete##*!}/$command"
+          done
+          for library in rsudo.lib.sh rsudo-mod-fs.lib.sh rsudo-mod-exec.lib.sh
+          do
+            [ -L "m-source/pkg/$concrete/link/lib/sh/$library" ]
+            [ -f "m-source/pkg/$concrete/link/lib/sh/$library" ]
+          done
+          echo 'PASS: m-rsudo@v0.1.2 installed from exact V2 catalog with declared commands and libraries'
