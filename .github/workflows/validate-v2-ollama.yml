@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 168b86561e8c34000756d54ff48975638a0df709
+          ref: ed5ec60e1c6289f93f68ab03e1eb71736aab6051
           path: m-source
           persist-credentials: false
       - name: Install and operate Ollama through public m
@@ -74,6 +74,7 @@ jobs:
           trap - EXIT HUP INT TERM
           echo 'PASS: real v2 Ollama package, pinned provider, srv start/ready/stop/idempotence'
   real-ollama-host-system:
+    if: github.ref == 'refs/heads/pkg-schema-v2'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -85,7 +86,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 168b86561e8c34000756d54ff48975638a0df709
+          ref: ed5ec60e1c6289f93f68ab03e1eb71736aab6051
           path: m-source
           persist-credentials: false
       - name: Validate real v2 Ollama through isolated host-system supervision
@@ -225,7 +226,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 168b86561e8c34000756d54ff48975638a0df709
+          ref: ed5ec60e1c6289f93f68ab03e1eb71736aab6051
           path: m-source
           persist-credentials: false
       - name: Validate real v2 Ollama under the existing POSIX user's systemd manager

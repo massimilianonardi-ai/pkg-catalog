@@ -32,7 +32,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 168b86561e8c34000756d54ff48975638a0df709
+          ref: ed5ec60e1c6289f93f68ab03e1eb71736aab6051
           path: m-source
           persist-credentials: false
       - name: Checkout existing Java public-path permanent test
