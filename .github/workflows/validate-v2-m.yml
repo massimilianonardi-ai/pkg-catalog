@@ -2,7 +2,7 @@ name: Validate v2 direct package entrypoints
 
 on:
   push:
-    branches: [pkg-schema-v2]
+    branches: [pkg-schema-v2, codex/pkg-schema-v2-mainline-integration]
     paths:
       - 'v2/**'
       - '.github/workflows/validate-v2-m.yml'
