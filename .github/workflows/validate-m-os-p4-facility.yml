@@ -1,0 +1,43 @@
+name: P4 exact-head derived facility map validation
+
+on:
+  push:
+    branches: [m-os-completion-p4-ci]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  facility-map-and-provider-lifecycle:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 99a6250d624ad0db95cf5c0baaa7f617e8fba884
+          path: m-os
+          persist-credentials: false
+      - name: Pin exact P4 product source and prepare its runtime
+        shell: sh
+        working-directory: m-os
+        run: |
+          set -eu
+          [ "$(git rev-parse HEAD)" = 99a6250d624ad0db95cf5c0baaa7f617e8fba884 ] || exit 1
+          ./m osarch update
+      - name: Verify derived facility map ordering and offline recovery
+        shell: sh
+        working-directory: m-os
+        run: /bin/sh .github/scripts/m-pkg-p4-facility-map-unit.sh
+      - name: Verify authentic released-provider map lifecycle and default projections
+        shell: sh
+        working-directory: m-os
+        run: /bin/sh .github/scripts/m-pkg-p3-provider-versions.sh
