@@ -1,0 +1,357 @@
+name: Validate real v2 Ollama portable service
+
+on:
+  push:
+    branches: [pkg-schema-v2]
+    paths:
+      - 'v2/pkg/ollama/**'
+      - '.github/workflows/validate-v2-ollama.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-ollama-service:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout catalog
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact m runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          path: m-source
+          persist-credentials: false
+      - name: Install and operate Ollama through public m
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m osarch update
+          conf=$(./m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
+          # Do not take over a preexisting host-side Ollama service.
+          if ./m-source/m http-fetch -t 2 -- http://127.0.0.1:11434/api/version > /dev/null 2>&1
+          then
+            echo 'Ollama endpoint already in use; refusing lifecycle takeover' >&2
+            exit 30
+          fi
+          echo 'CHECKPOINT: installing real v2 Ollama package'
+          ./m-source/m pkg install ollama@v0.35.1
+          concrete=$(./m-source/m pkg default ollama)
+          [ "$concrete" = 'ollama@v0.35.1!linux-x86_64' ]
+          [ "$(cat "m-source/pkg/$concrete/schema")" = v2 ]
+          [ "$(readlink "m-source/pkg/$concrete/link/bin/ollama-serve")" = ../../cmd/ollama-serve ]
+          [ "$(readlink "m-source/pkg/$concrete/link/target/ollama-serve")" = ../../root/bin/ollama ]
+          ./m-source/m pkg provider default ollama 'ollama@v0.35.1!linux-x86_64'
+          cleanup() {
+            ./m-source/m srv stop ollama || :
+            ./m-source/m pkg provider default -u ollama || :
+          }
+          trap cleanup EXIT HUP INT TERM
+          echo 'CHECKPOINT: starting selected real v2 service'
+          ./m-source/m srv start ollama
+          ready=no
+          for attempt in $(seq 1 45)
+          do
+            if ./m-source/m ollama list > /dev/null 2>&1
+            then
+              ready=yes
+              break
+            fi
+            sleep 1
+          done
+          [ "$ready" = yes ]
+          # Changing the selector must not make stop target a different service.
+          ./m-source/m pkg provider default -u ollama
+          ./m-source/m srv stop ollama
+          ./m-source/m srv stop ollama
+          trap - EXIT HUP INT TERM
+          echo 'PASS: real v2 Ollama package, pinned provider, srv start/ready/stop/idempotence'
+  real-ollama-host-system:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout catalog
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact m runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          path: m-source
+          persist-credentials: false
+      - name: Validate real v2 Ollama through isolated host-system supervision
+        shell: sh
+        run: |
+          set -eu
+          account=$(id -un)
+          uid=$(id -u)
+          [ "$uid" -ne 0 ] || {
+            echo 'INFRASTRUCTURE: host runner must use a pre-existing non-root account' >&2
+            exit 3
+          }
+          command -v sudo >/dev/null 2>&1 && sudo -n true &&
+            sudo -n systemctl show-environment >/dev/null 2>&1 || {
+            echo 'INFRASTRUCTURE: passwordless sudo/systemd system manager unavailable' >&2
+            exit 3
+          }
+          if sudo -n systemctl cat m-srv-ollama.service >/dev/null 2>&1 ||
+             [ -e /etc/systemd/system/m-srv-ollama.service ] ||
+             [ -L /etc/systemd/system/m-srv-ollama.service ]
+          then
+            echo 'INFRASTRUCTURE: refusing to replace a pre-existing host service' >&2
+            exit 3
+          fi
+          if ./m-source/m http-fetch -t 2 -- http://127.0.0.1:11434/api/version >/dev/null 2>&1
+          then
+            echo 'INFRASTRUCTURE: refusing to take over an existing Ollama endpoint' >&2
+            exit 3
+          fi
+
+          ./m-source/m osarch update
+          conf=$(./m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
+          ./m-source/m pkg install ollama@v0.35.1
+          concrete=$(./m-source/m pkg default ollama)
+          [ "$concrete" = 'ollama@v0.35.1!linux-x86_64' ]
+          [ "$(cat "m-source/pkg/$concrete/schema")" = v2 ]
+          ./m-source/m pkg provider default ollama "$concrete"
+
+          cleanup() {
+            sudo -n ./m-source/m srv host system stop ollama >/dev/null 2>&1 || :
+            sudo -n ./m-source/m srv host system uninstall ollama >/dev/null 2>&1 || :
+            ./m-source/m pkg provider default -u ollama >/dev/null 2>&1 || :
+          }
+          trap cleanup 0
+          trap 'exit 130' HUP INT TERM
+
+          echo 'CHECKPOINT: registering exact concrete under a pre-existing non-root account'
+          sudo -n ./m-source/m srv host system install ollama "$account"
+          unit=/etc/systemd/system/m-srv-ollama.service
+          [ -f "$unit" ] && [ ! -L "$unit" ]
+          grep -F "User=$account" "$unit" >/dev/null
+          grep -F 'ExecStart=/bin/sh ' "$unit" >/dev/null
+          sudo -n systemctl is-enabled --quiet m-srv-ollama.service
+          if sudo -n systemctl is-active --quiet m-srv-ollama.service
+          then
+            echo 'FAIL: host install started the service prematurely' >&2
+            exit 1
+          fi
+
+          service_home=$(./m-source/m state-path system pkg ollama home ollama)
+          [ -d "$service_home" ] && [ ! -L "$service_home" ]
+          [ "$(stat -c %u "$service_home")" = "$uid" ]
+          [ "$(stat -c %a "$service_home")" = 700 ]
+
+          echo 'CHECKPOINT: starting real provider as non-root host service'
+          sudo -n ./m-source/m srv host system start ollama
+          ready=no
+          attempt=0
+          while [ "$attempt" -lt 60 ]
+          do
+            if ./m-source/m ollama list >/dev/null 2>&1
+            then
+              ready=yes
+              break
+            fi
+            sleep 1
+            attempt=$((attempt + 1))
+          done
+          if [ "$ready" != yes ]
+          then
+            sudo -n systemctl status m-srv-ollama.service --no-pager >&2 || :
+            sudo -n journalctl -u m-srv-ollama.service -n 60 --no-pager >&2 || :
+            echo 'FAIL: hosted Ollama not responsive' >&2
+            exit 1
+          fi
+          sudo -n systemctl is-active --quiet m-srv-ollama.service
+          main_pid=$(sudo -n systemctl show -p MainPID --value m-srv-ollama.service)
+          case "$main_pid" in '' | 0 | *[!0123456789]*) exit 1 ;; esac
+          [ "$(ps -o user= -p "$main_pid" | tr -d ' ')" = "$account" ]
+          echo 'CHECKPOINT: restarting the supervised provider'
+          sudo -n ./m-source/m srv host system restart ollama
+          ready=no
+          attempt=0
+          while [ "$attempt" -lt 60 ]
+          do
+            if sudo -n systemctl is-active --quiet m-srv-ollama.service &&
+               ./m-source/m ollama list >/dev/null 2>&1
+            then
+              ready=yes
+              break
+            fi
+            sleep 1
+            attempt=$((attempt + 1))
+          done
+          [ "$ready" = yes ]
+
+          sudo -n ./m-source/m srv host system stop ollama
+          if sudo -n systemctl is-active --quiet m-srv-ollama.service
+          then
+            echo 'FAIL: stopped host service remains active' >&2
+            exit 1
+          fi
+          ./m-source/m pkg provider default -u ollama
+          if sudo -n ./m-source/m srv host system start ollama
+          then
+            echo 'FAIL: stale host registration accepted absent provider default' >&2
+            exit 1
+          fi
+          [ -d "$service_home" ]
+          sudo -n ./m-source/m srv host system uninstall ollama
+          [ ! -e "$unit" ] && [ ! -L "$unit" ]
+          [ -d "$service_home" ]
+          trap - 0 HUP INT TERM
+          echo 'PASS: real v2 Ollama host-system install/start/restart/stop/uninstall, non-root state and stale default rejection'
+
+  real-ollama-host-user:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout catalog
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact m runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 28d9ece912fef151e21a0bd0559904614c2a60e2
+          path: m-source
+          persist-credentials: false
+      - name: Validate real v2 Ollama under the existing POSIX user's systemd manager
+        shell: sh
+        run: |
+          set -eu
+          uid=$(id -u)
+          account=$(id -un)
+          account_home=$(getent passwd "$uid" | awk -F: -v id="$uid" '$3 == id { print $6; exit }')
+          [ -n "$account_home" ] && [ -d "$account_home" ] || {
+            echo 'INFRASTRUCTURE: no existing host account/home' >&2
+            exit 3
+          }
+          [ "$uid" -ne 0 ] || {
+            echo 'INFRASTRUCTURE: expected an existing non-root account' >&2
+            exit 3
+          }
+          runtime="/run/user/$uid"
+          manager() {
+            HOME="$account_home" \
+            XDG_CONFIG_HOME="$account_home/.config" \
+            XDG_RUNTIME_DIR="$runtime" \
+            DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime/bus" \
+              systemctl --user "$@"
+          }
+          # This test must not create a replacement login session, modify
+          # lingering policy or pretend an unavailable manager is a PASS.
+          if [ ! -d "$runtime" ] || ! manager show-environment >/dev/null 2>&1
+          then
+            echo 'INFRASTRUCTURE: no existing real systemd user manager/session' >&2
+            exit 3
+          fi
+          unit="$account_home/.config/systemd/user/m-srv-ollama.service"
+          if [ -e "$unit" ] || [ -L "$unit" ] ||
+             manager cat m-srv-ollama.service >/dev/null 2>&1
+          then
+            echo 'INFRASTRUCTURE: existing user unit will not be modified' >&2
+            exit 3
+          fi
+          if ./m-source/m http-fetch -t 2 -- http://127.0.0.1:11434/api/version >/dev/null 2>&1
+          then
+            echo 'INFRASTRUCTURE: Ollama endpoint is already occupied' >&2
+            exit 3
+          fi
+          ./m-source/m osarch update
+          conf=$(./m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
+          ./m-source/m pkg install ollama@v0.35.1
+          concrete=$(./m-source/m pkg default ollama)
+          [ "$concrete" = 'ollama@v0.35.1!linux-x86_64' ]
+          [ "$(cat "m-source/pkg/$concrete/schema")" = v2 ]
+          ./m-source/m pkg provider default ollama "$concrete"
+
+          cleanup() {
+            ./m-source/m srv host user stop ollama >/dev/null 2>&1 || :
+            ./m-source/m srv host user uninstall ollama >/dev/null 2>&1 || :
+            ./m-source/m pkg provider default -u ollama >/dev/null 2>&1 || :
+          }
+          trap cleanup 0
+          trap 'exit 130' HUP INT TERM
+          echo 'CHECKPOINT: installing under existing user manager'
+          ./m-source/m srv host user install ollama
+          [ -f "$unit" ] && [ ! -L "$unit" ]
+          grep -F 'ExecStart=/bin/sh ' "$unit" >/dev/null
+          manager is-enabled --quiet m-srv-ollama.service
+          if manager is-active --quiet m-srv-ollama.service
+          then
+            echo 'FAIL: user install unexpectedly started service' >&2
+            exit 1
+          fi
+
+          echo 'CHECKPOINT: using real Ollama in systemd user service'
+          ./m-source/m srv host user start ollama
+          ready=no
+          attempt=0
+          while [ "$attempt" -lt 60 ]
+          do
+            if manager is-active --quiet m-srv-ollama.service &&
+               ./m-source/m ollama list >/dev/null 2>&1
+            then
+              ready=yes
+              break
+            fi
+            sleep 1
+            attempt=$((attempt + 1))
+          done
+          if [ "$ready" != yes ]
+          then
+            manager status m-srv-ollama.service --no-pager >&2 || :
+            echo 'FAIL: Ollama user-host process did not become responsive' >&2
+            exit 1
+          fi
+          main_pid=$(manager show -p MainPID --value m-srv-ollama.service)
+          case "$main_pid" in '' | 0 | *[!0123456789]*) exit 1 ;; esac
+          [ "$(ps -o user= -p "$main_pid" | tr -d ' ')" = "$account" ]
+
+          echo 'CHECKPOINT: restart, stop and selector rejection'
+          ./m-source/m srv host user restart ollama
+          ready=no
+          attempt=0
+          while [ "$attempt" -lt 60 ]
+          do
+            if manager is-active --quiet m-srv-ollama.service &&
+               ./m-source/m ollama list >/dev/null 2>&1
+            then
+              ready=yes
+              break
+            fi
+            sleep 1
+            attempt=$((attempt + 1))
+          done
+          [ "$ready" = yes ]
+          ./m-source/m srv host user stop ollama
+          if manager is-active --quiet m-srv-ollama.service
+          then
+            echo 'FAIL: user service remains active after stop' >&2
+            exit 1
+          fi
+          ./m-source/m pkg provider default -u ollama
+          if ./m-source/m srv host user start ollama
+          then
+            echo 'FAIL: user host accepted an absent provider default' >&2
+            exit 1
+          fi
+          ./m-source/m srv host user uninstall ollama
+          [ ! -e "$unit" ] && [ ! -L "$unit" ]
+          trap - 0 HUP INT TERM
+          echo 'PASS: real v2 Ollama systemd user host registration, start/restart/stop, provider rejection and uninstall'
