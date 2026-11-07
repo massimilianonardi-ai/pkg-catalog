@@ -1,0 +1,64 @@
+name: Validate published v2 mk and jsc through public m
+
+on:
+  push:
+    branches: [pkg-schema-v2, codex/pkg-schema-v2-mainline-integration]
+    paths:
+      - 'v2/pkg/mk/**'
+      - 'v2/pkg/jsc/**'
+      - 'v2/pkg/nodejs/**'
+      - '.github/workflows/validate-v2-mk-jsc-live.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mk-jsc-public:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact catalog revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: catalog
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact autonomous v2 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: ed5ec60e1c6289f93f68ab03e1eb71736aab6051
+          path: m-source
+          persist-credentials: false
+      - name: Checkout isolated real mk/jsc permanent test
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/rumiai-tests
+          ref: c7a8b2137e407bc33a942ec6c6ba346a6019fe66
+          path: tests
+          persist-credentials: false
+      - name: Prepare exact catalog and public m environment
+        shell: sh
+        run: |
+          set -eu
+          [ "$(git -C catalog rev-parse HEAD)" = "$GITHUB_SHA" ]
+          git -C catalog switch -c ci-v2-first-party
+          ./m-source/m osarch update
+          conf=$(./m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+      - name: Execute published mk/jsc packages through rumiai-test
+        shell: sh
+        env:
+          RUMIAI_TEST_M_OS_ROOT: ${{ github.workspace }}/m-source
+          RUMIAI_TEST_PKG_CATALOG_ROOT: ${{ github.workspace }}/catalog
+        run: |
+          set -eu
+          ./tests/rumiai-test --list m-os/pkg-v2-first-party
+          ./tests/rumiai-test m-os/pkg-v2-first-party

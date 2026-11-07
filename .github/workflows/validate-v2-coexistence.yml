@@ -1,0 +1,53 @@
+name: Validate offline mixed v1/v2 package defaults
+
+on:
+  push:
+    branches: [pkg-schema-v2, codex/pkg-schema-v2-mainline-integration]
+    paths:
+      - '.github/workflows/validate-v2-coexistence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# New exact-revision fixture runs supersede older queued executions of this
+# same offline workflow on the same branch; release-backed CI is independent.
+concurrency:
+  group: offline-v2-coexistence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mixed-default-lifecycle:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: ed5ec60e1c6289f93f68ab03e1eb71736aab6051
+          path: m-source
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/rumiai-tests
+          ref: cf6ef10bc5d43f15988f23ba621515363a5bacb7
+          path: tests
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          path: catalog
+          persist-credentials: false
+      - name: Run permanent offline mixed-schema lifecycle tests through rumiai-test
+        shell: sh
+        env:
+          RUMIAI_TEST_M_OS_ROOT: ${{ github.workspace }}/m-source
+          RUMIAI_TEST_PKG_CATALOG_ROOT: ${{ github.workspace }}/catalog
+        run: |
+          set -eu
+          ./m-source/m osarch update
+          ./tests/rumiai-test --list m-os/pkg-schema-v2
+          ./tests/rumiai-test m-os/pkg-schema-v2
