@@ -2,7 +2,7 @@ name: P3 real public provider reference and fail-closed regression
 
 on:
   push:
-    branches: [m-os-completion-p3-ci]
+    branches: [m-os-completion-p3-ci, m-os-completion-p4-ci]
     paths:
       - .github/workflows/validate-m-os-p3-negative.yml
   workflow_dispatch:
@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 446de83af5e449734da0ec6f9e0f9b6c70f94ba6
+          ref: 91944c3a6e4c55da66dd21cbf343e9e2ab7baa9f
           path: m-os
           persist-credentials: false
       - name: Real released provider reference protection and invalid selection
@@ -30,7 +30,7 @@ jobs:
         working-directory: m-os
         run: |
           set -eu
-          [ "$(git rev-parse HEAD)" = 446de83af5e449734da0ec6f9e0f9b6c70f94ba6 ] || exit 1
+          [ "$(git rev-parse HEAD)" = 91944c3a6e4c55da66dd21cbf343e9e2ab7baa9f ] || exit 1
 
           git clone --quiet -- https://github.com/massimilianonardi-ai/pkg-catalog.git "$RUNNER_TEMP/p3-advanced-catalog"
           git -C "$RUNNER_TEMP/p3-advanced-catalog" checkout --quiet -b p3-advanced-catalog 4083aa19c4362f00ec62428a631edfa493faf7f0
