@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 99a6250d624ad0db95cf5c0baaa7f617e8fba884
+          ref: 540b46db9582090262c1b3ab6ddd35b56c920ebb
           path: m-os
           persist-credentials: false
       - name: Real released provider reference protection and invalid selection
@@ -30,7 +30,7 @@ jobs:
         working-directory: m-os
         run: |
           set -eu
-          [ "$(git rev-parse HEAD)" = 99a6250d624ad0db95cf5c0baaa7f617e8fba884 ] || exit 1
+          [ "$(git rev-parse HEAD)" = 540b46db9582090262c1b3ab6ddd35b56c920ebb ] || exit 1
 
           git clone --quiet -- https://github.com/massimilianonardi-ai/pkg-catalog.git "$RUNNER_TEMP/p3-advanced-catalog"
           git -C "$RUNNER_TEMP/p3-advanced-catalog" checkout --quiet -b p3-advanced-catalog 4083aa19c4362f00ec62428a631edfa493faf7f0
