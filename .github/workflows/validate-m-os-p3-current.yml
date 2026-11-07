@@ -87,4 +87,4 @@ jobs:
         run: |
           set -eu
           [ "$(git rev-parse HEAD)" = 23f344df5ef6e3f0f0d99ae66b86bc0f370d6c89 ]
-          /bin/sh .github/scripts/m-pkg-p3-typed-env.sh
+          /bin/sh -x .github/scripts/m-pkg-p3-typed-env.sh
