@@ -63,7 +63,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 57d4801d1dea487204c48eb855464a65301bf96f
+          ref: 35e2d090
           persist-credentials: false
       - name: Checkout pinned catalog
         uses: actions/checkout@v4
@@ -83,6 +83,8 @@ jobs:
           mkdir -p -- "$conf"
           printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
           sh -n lib/sys/sh/pkg/repository/pkg-repository-podman.lib.sh
+          sh -n .github/scripts/m-podman-adapter-fixture.sh
+          PODMAN_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" SHELL=/bin/sh ./m shell -c '. .github/scripts/m-podman-adapter-fixture.sh'
           anchor=$(cat catalog/v1/pkg/podman/macos-arm64/repository/version)
           test "$anchor" = v6.1.4
           ./m pkg depend podman@v6.1.3
