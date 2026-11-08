@@ -1,0 +1,135 @@
+name: Exact m-os repository-adapter PR validation
+
+on:
+  push:
+    branches: [codex/m-os-adapter-runner]
+
+permissions:
+  contents: read
+
+jobs:
+  gpgtools-macos-arm64:
+    name: GPGTools exact artifact on macOS ARM64
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact GPGTools adapter PR head
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 620cf9f7a301d93a44d5702988c7bf59a8481292
+          persist-credentials: false
+      - name: Checkout pinned catalog
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
+          path: catalog
+          persist-credentials: false
+      - name: Configure isolated runtime and run authentic public package path
+        shell: sh
+        run: |
+          set -eu
+          test "$(uname -m)" = arm64
+          ./m osarch update
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+          sh -n lib/sys/sh/pkg/repository/pkg-repository-gpgtools.lib.sh
+          sh -n tests/pkg-repository-gpgtools-fixture.sh
+          GPGTOOLS_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" GPGTOOLS_FIXTURE_TMP_BASE="$GITHUB_WORKSPACE/.gpgtools-fixture" SHELL=/bin/bash ./m shell -c '. ./tests/pkg-repository-gpgtools-fixture.sh'
+          ./m pkg depend 'macgpg@2026.1+3633n!macos-arm64' >/dev/null
+          ./m pkg install 'macgpg@2026.1+3633n!macos-arm64'
+          versions=$(./m pkg versions macgpg)
+          printf '%s\n' "$versions"
+          case "$versions" in *'macgpg@2026.1+3633n!macos-arm64'*) :;; *) echo 'pinned GPGTools concrete missing' >&2; exit 1;; esac
+          tmp=$(mktemp -d)
+          cleanup() { rm -rf -- "$tmp"; }
+          trap cleanup 0 HUP INT TERM
+          mkdir -p -- "$tmp/home" "$tmp/gnupg"
+          chmod 700 "$tmp/gnupg"
+          output=$(HOME="$tmp/home" GNUPGHOME="$tmp/gnupg" ./m gpg --version)
+          printf '%s\n' "$output"
+          case "$output" in *'gpg (GnuPG)'*) :;; *) echo 'packaged gpg did not report its version' >&2; exit 1;; esac
+          echo 'PASS: exact GPGTools package installed and public command ran'
+
+  podman-macos-arm64:
+    name: Podman exact and latest artifacts on macOS ARM64
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact Podman adapter PR head
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: a11c944089a33fc0f23d02038e3f5f3fa60ee1bb
+          persist-credentials: false
+      - name: Checkout pinned catalog
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
+          path: catalog
+          persist-credentials: false
+      - name: Configure isolated runtime and run authentic public package path
+        shell: sh
+        run: |
+          set -eu
+          test "$(uname -m)" = arm64
+          ./m osarch update
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+          sh -n lib/sys/sh/pkg/repository/pkg-repository-podman.lib.sh
+          ./m pkg depend podman
+          ./m pkg install podman
+          latest=$(./m pkg default podman)
+          case "$latest" in podman@v[0-9]*.[0-9]*.[0-9]*!*) :;; *) printf 'Unexpected latest concrete: %s\n' "$latest" >&2; exit 1;; esac
+          ./m podman --version
+          ./m pkg depend podman@v6.1.2
+          ./m pkg install podman@v6.1.2
+          [ "$(./m pkg default podman)" = podman@v6.1.2 ]
+          ./m podman --version
+          echo 'PASS: exact and latest Podman packages installed and public command ran'
+
+  chrome-for-testing-linux-arm64:
+    name: Chrome for Testing exact and latest artifacts on Linux ARM64
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact Chrome for Testing adapter PR head
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 2f2e75bf66ef67ba6661fd51a9af55a05b158905
+          persist-credentials: false
+      - name: Checkout pinned catalog
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
+          path: catalog
+          persist-credentials: false
+      - name: Configure isolated runtime and run authentic public package path
+        shell: sh
+        run: |
+          set -eu
+          ./m osarch update
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+          sh -n lib/sys/sh/pkg/repository/pkg-repository-chrome-for-testing.lib.sh
+          sh -n .github/scripts/m-cft-adapter-fixture.sh
+          CFT_FIXTURE_TMP_BASE="$GITHUB_WORKSPACE/.cft-fixture-tmp" .github/scripts/m-cft-adapter-fixture.sh
+          ./m manual --no-pager pkg-repository-chrome-for-testing.lib.sh > /dev/null
+          ./m pkg install 'chromium@153.0.8010.12!linux-arm64'
+          exact=chromium@153.0.8010.12!linux-arm64
+          [ -d "pkg/$exact/root" ]
+          ./m pkg install 'chromium!linux-arm64'
+          versions=$(./m pkg versions chromium)
+          printf '%s\n' "$versions"
+          printf '%s\n' "$versions" | grep -F '153.0.8010.12!linux-arm64' > /dev/null
+          latest=$(./m pkg default chromium)
+          case "$latest" in chromium@*'!linux-arm64') :;; *) printf 'Unexpected Chromium default: %s\n' "$latest" >&2; exit 1;; esac
+          [ -d "pkg/$latest/root" ]
+          echo "PASS: exact CfT anchor and current Stable installed through public pkg; latest=$latest"
