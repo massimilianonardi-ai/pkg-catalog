@@ -1,0 +1,32 @@
+name: Exact m-os mixed catalog schema diagnostics
+
+on:
+  push:
+    branches: [codex/m-os-catalog-diagnostic-runner]
+
+permissions:
+  contents: read
+
+jobs:
+  mixed-schema:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact m-os catalog diagnostic candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: codex/pkg-catalog-snapshot-diagnostic
+          persist-credentials: false
+      - name: Reject malformed catalog through public package commands
+        shell: sh
+        run: |
+          set -eu
+          test "$(git rev-parse HEAD)" = 5df559542e7ddd5d63a2c7bc7f915e123beb3cfb
+          ./m osarch update
+          sh -n .github/scripts/m-pkg-catalog-invalid-shape.sh
+          ./m shell -c '. .github/scripts/m-pkg-catalog-invalid-shape.sh'
