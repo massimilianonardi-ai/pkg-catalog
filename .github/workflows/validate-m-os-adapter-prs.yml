@@ -393,9 +393,9 @@ jobs:
             target_class="graalvm!$EXPECTED_OSARCH"
             repository="$GITHUB_WORKSPACE/catalog/v1/pkg/graalvm/windows-x86_64/repository"
             range="$GITHUB_WORKSPACE/catalog/v1/pkg/graalvm/windows-x86_64/n0001=25.3.4.1"
-            latest=$(GRAALVM_REPOSITORY="$repository" ./m shell -c '. "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-graalvm.lib.sh"; pkg_repository_resolve_version "$GRAALVM_REPOSITORY"')
-            exact_artifact=$(GRAALVM_REPOSITORY="$repository" GRAALVM_RANGE="$range" ./m shell -c '. "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-graalvm.lib.sh"; pkg_repository_resolve_artifact "$GRAALVM_REPOSITORY" "$GRAALVM_RANGE" 25.3.4.1')
-            latest_artifact=$(GRAALVM_REPOSITORY="$repository" GRAALVM_RANGE="$range" GRAALVM_VERSION="$latest" ./m shell -c '. "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-graalvm.lib.sh"; pkg_repository_resolve_artifact "$GRAALVM_REPOSITORY" "$GRAALVM_RANGE" "$GRAALVM_VERSION"')
+            latest=$(GRAALVM_REPOSITORY="$repository" ./m shell -c '. "$m_LIB_DIR/sys/sh/core.lib.sh"; loadsyslib "json"; . "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-graalvm.lib.sh"; pkg_repository_resolve_version "$GRAALVM_REPOSITORY"')
+            exact_artifact=$(GRAALVM_REPOSITORY="$repository" GRAALVM_RANGE="$range" ./m shell -c '. "$m_LIB_DIR/sys/sh/core.lib.sh"; loadsyslib "json"; . "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-graalvm.lib.sh"; pkg_repository_resolve_artifact "$GRAALVM_REPOSITORY" "$GRAALVM_RANGE" 25.3.4.1')
+            latest_artifact=$(GRAALVM_REPOSITORY="$repository" GRAALVM_RANGE="$range" GRAALVM_VERSION="$latest" ./m shell -c '. "$m_LIB_DIR/sys/sh/core.lib.sh"; loadsyslib "json"; . "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-graalvm.lib.sh"; pkg_repository_resolve_artifact "$GRAALVM_REPOSITORY" "$GRAALVM_RANGE" "$GRAALVM_VERSION"')
             printf '%s\n' "$exact_artifact" "$latest_artifact"
             case "$exact_artifact" in *'url=https://github.com/graalvm/graalvm-ce-builds/releases/download/'*'size='*'digest=sha256:'*) :;; *) echo 'Windows exact artifact metadata invalid' >&2; exit 1;; esac
             case "$latest_artifact" in *'url=https://github.com/graalvm/graalvm-ce-builds/releases/download/'*'size='*'digest=sha256:'*) :;; *) echo 'Windows latest artifact metadata invalid' >&2; exit 1;; esac
