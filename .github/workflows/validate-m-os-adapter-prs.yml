@@ -169,7 +169,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: codex/geoserver-repository-adapter
+          ref: 191b98b07b688a4155ab6b1d9e78d1e91dba50c0
           persist-credentials: false
       - name: Checkout exact published catalog
         uses: actions/checkout@v4
@@ -182,7 +182,7 @@ jobs:
         shell: sh
         run: |
           set -eu
-          test "$(git rev-parse HEAD)" = b1e4f040506592f0433e26005741f887266f4462
+          test "$(git rev-parse HEAD)" = 191b98b07b688a4155ab6b1d9e78d1e91dba50c0
           test "$(git -C catalog rev-parse HEAD)" = 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
           ./m osarch update
           case "$RUNNER_OS" in
@@ -210,25 +210,20 @@ jobs:
           printf '%s\n' "$exact_dependencies" "$latest_dependencies"
           case "$exact_dependencies" in *'temurin@21+35!'*) : ;; *) echo 'exact GeoServer request did not select Temurin 21' >&2; exit 1 ;; esac
           case "$latest_dependencies" in *'temurin@21+35!'*) : ;; *) echo 'latest GeoServer request did not select Temurin 21' >&2; exit 1 ;; esac
-          ./m pkg install geoserver@3.0.1
+          ./m pkg install "geoserver!$expected_osarch"
+          latest=$(./m pkg default geoserver)
+          case "$latest" in geoserver@*!"$expected_osarch") : ;; *) echo "unexpected latest GeoServer concrete: $latest" >&2; exit 1 ;; esac
+          if [ "$latest" != "geoserver@3.0.1!$expected_osarch" ]; then
+            ./m pkg install geoserver@3.0.1
+          fi
           exact=geoserver@3.0.1!$expected_osarch
           versions=$(./m pkg versions geoserver)
-          case "$versions" in *'geoserver@3.0.1'*) : ;; *) echo 'exact GeoServer 3.0.1 concrete missing' >&2; exit 1 ;; esac
+          case "$versions" in *"$exact"*) : ;; *) echo "exact GeoServer 3.0.1 concrete missing: $exact" >&2; exit 1 ;; esac
           work="$GITHUB_WORKSPACE/.geoserver-work"
           mkdir -p -- "$work"
-          if ./m pkg install geoserver 2> "$work/latest-install.err"; then
-            :
-          elif grep -F '[pkg-install.already-installed]' "$work/latest-install.err" >/dev/null; then
-            echo 'latest GeoServer resolves to the already installed exact release'
-          else
-            cat "$work/latest-install.err" >&2
-            exit 1
-          fi
           versions=$(./m pkg versions geoserver)
           printf '%s\n' "$versions"
-          latest=$(./m pkg default geoserver)
-          case "$latest" in geoserver@*) : ;; *) echo "unexpected latest GeoServer concrete: $latest" >&2; exit 1 ;; esac
-          case "$versions" in *"$latest"*) : ;; *) echo 'latest GeoServer concrete missing after installation' >&2; exit 1 ;; esac
+          case "$versions" in *"$latest"*) : ;; *) echo "latest GeoServer concrete missing: $latest" >&2; exit 1 ;; esac
           ./m pkg provider default java temurin@21+35
           ./m pkg provider default geoserver "$latest"
           cleanup() {
