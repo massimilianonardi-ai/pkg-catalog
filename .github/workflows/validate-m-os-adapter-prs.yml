@@ -130,17 +130,7 @@ jobs:
           ./m osarch update
           conf=$(./m state-path system sys pkg conf)
           mkdir -p -- "$conf"
-          printf '%s\n' 'https://github.com/massimilianonardi-ai/pkg-catalog.git' > "$conf/catalog"
-          cache_root=$(./m state-path system sys pkg cache)
-          mkdir -p -- "$cache_root"
-          cache="$cache_root/catalog-source"
-          git clone --no-checkout "$GITHUB_WORKSPACE/catalog" "$cache"
-          git -C "$cache" checkout --detach 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
-          test "$(git -C "$cache" rev-parse HEAD)" = 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
-          git -C "$cache" checkout -B snapshot 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
-          printf '%s\n' "$cache" > "$conf/catalog"
-          cache="$cache_root/catalog"
-          git clone --branch snapshot --single-branch "$GITHUB_WORKSPACE/catalog-source" "$cache"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
           sh -n lib/sys/sh/pkg/repository/pkg-repository-chrome-for-testing.lib.sh
           sh -n .github/scripts/m-cft-adapter-fixture.sh
           CFT_FIXTURE_TMP_BASE="$GITHUB_WORKSPACE/.cft-fixture-tmp" .github/scripts/m-cft-adapter-fixture.sh
@@ -205,9 +195,9 @@ jobs:
           git -C "$cache" checkout --detach 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
           test "$(git -C "$cache" rev-parse HEAD)" = 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
           git -C "$cache" checkout -B snapshot 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
-          printf '%s\n' "$cache" > "$conf/catalog"
+          printf '%s\n' "$cache_root/catalog-source" > "$conf/catalog"
           cache="$cache_root/catalog"
-          git clone --branch snapshot --single-branch "$GITHUB_WORKSPACE/catalog-source" "$cache"
+          git clone --branch snapshot --single-branch "$cache_root/catalog-source" "$cache"
           sh -n lib/sys/sh/pkg/repository/pkg-repository-geoserver.lib.sh
           exact_dependencies=$(./m pkg depend geoserver@3.0.1)
           latest_dependencies=$(./m pkg depend geoserver)
