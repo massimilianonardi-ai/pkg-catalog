@@ -148,7 +148,12 @@ jobs:
           printf '%s\n' "$versions"
           printf '%s\n' "$versions" | grep -F '153.0.8010.12!linux-arm64' > /dev/null
           [ -d "pkg/$latest/root" ]
-          echo "PASS: exact CfT anchor and current Stable installed through public pkg; latest=$latest"
+          latest_version=${latest#chromium@}
+          latest_version=${latest_version%%!*}
+          command_output=$(./m chromium --version)
+          printf '%s\n' "$command_output"
+          case "$command_output" in *"$latest_version"*) :;; *) echo "Chromium command did not run selected Stable $latest_version" >&2; exit 1;; esac
+          echo "PASS: exact CfT anchor and current Stable installed through public pkg; Chromium command ran latest=$latest"
 
   geoserver-real-service:
     name: GeoServer exact/latest and WFS service on ${{ matrix.os }}
