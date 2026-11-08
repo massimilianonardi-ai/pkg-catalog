@@ -35,6 +35,8 @@ jobs:
           set -eu
           test "$(git -C m-os-master rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
           test "$(git -C m-os-s rev-parse HEAD)" = 15a2c4f96584c07b92088e5530d4ecb09a9477b8
+          git -C m-os-master config user.name 'm-os CI composition'
+          git -C m-os-master config user.email 'm-os-ci@example.invalid'
           git -C m-os-master merge --no-commit --no-ff 15a2c4f96584c07b92088e5530d4ecb09a9477b8
           test "$(git -C m-os-master rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
           test "$(git -C m-os-master rev-parse MERGE_HEAD)" = 15a2c4f96584c07b92088e5530d4ecb09a9477b8
