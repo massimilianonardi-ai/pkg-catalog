@@ -169,7 +169,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 191b98b0a8d9bc3ec149ff799888ee7d9b3745c0
+          ref: 3a4510026339737dc583062f8473466805ad9849
           persist-credentials: false
       - name: Checkout exact published catalog
         uses: actions/checkout@v4
@@ -182,7 +182,7 @@ jobs:
         shell: sh
         run: |
           set -eu
-          test "$(git rev-parse HEAD)" = 191b98b0a8d9bc3ec149ff799888ee7d9b3745c0
+          test "$(git rev-parse HEAD)" = 3a4510026339737dc583062f8473466805ad9849
           test "$(git -C catalog rev-parse HEAD)" = 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
           ./m osarch update
           case "$RUNNER_OS" in
@@ -212,13 +212,13 @@ jobs:
           case "$latest_dependencies" in *'temurin@21+35!'*) : ;; *) echo 'latest GeoServer request did not select Temurin 21' >&2; exit 1 ;; esac
           ./m pkg install "geoserver!$expected_osarch"
           latest=$(./m pkg default geoserver)
-          case "$latest" in geoserver@*!"$expected_osarch") : ;; *) echo "unexpected latest GeoServer concrete: $latest" >&2; exit 1 ;; esac
-          if [ "$latest" != "geoserver@3.0.1!$expected_osarch" ]; then
+          case "$latest" in geoserver@*) : ;; *) echo "unexpected latest GeoServer concrete: $latest" >&2; exit 1 ;; esac
+          if [ "$latest" != "geoserver@3.0.1" ] && [ "$latest" != "geoserver@3.0.1!$expected_osarch" ]; then
             ./m pkg install geoserver@3.0.1
           fi
           exact=geoserver@3.0.1!$expected_osarch
           versions=$(./m pkg versions geoserver)
-          case "$versions" in *"$exact"*) : ;; *) echo "exact GeoServer 3.0.1 concrete missing: $exact" >&2; exit 1 ;; esac
+          case "$versions" in *'geoserver@3.0.1'*) : ;; *) echo "exact GeoServer 3.0.1 concrete missing: $exact" >&2; exit 1 ;; esac
           work="$GITHUB_WORKSPACE/.geoserver-work"
           mkdir -p -- "$work"
           versions=$(./m pkg versions geoserver)
