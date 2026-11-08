@@ -258,7 +258,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 3a4510026339737dc583062f8473466805ad9849
+          ref: ff90b05d231c122c8db07659d92e32f3316709f0
           persist-credentials: false
       - name: Checkout exact published catalog
         uses: actions/checkout@v4
@@ -271,7 +271,7 @@ jobs:
         shell: sh
         run: |
           set -eu
-          test "$(git rev-parse HEAD)" = 3a4510026339737dc583062f8473466805ad9849
+          test "$(git rev-parse HEAD)" = ff90b05d231c122c8db07659d92e32f3316709f0
           test "$(git -C catalog rev-parse HEAD)" = 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
           ./m osarch update
           case "$RUNNER_OS" in
