@@ -1,4 +1,4 @@
-name: Real C1 context with released first-party packages
+name: Real C1 and R1 package consumers
 
 on:
   push:
@@ -41,6 +41,13 @@ jobs:
           ref: 2f08ac1a618ec6bed4478936129943398b861dc3
           path: c1-tests
           persist-credentials: false
+      - name: Checkout pinned real m-rsudo consumer tests
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-rsudo
+          ref: f17e3826d5eb115cfafeeae7bdb292d53656531d
+          path: r1-tests
+          persist-credentials: false
       - name: Configure live m with selected local catalog snapshot
         shell: sh
         run: |
@@ -48,6 +55,7 @@ jobs:
           test "$(git -C catalog rev-parse HEAD)" = 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
           test "$(git -C m-source rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
           test "$(git -C c1-tests rev-parse HEAD)" = 2f08ac1a618ec6bed4478936129943398b861dc3
+          test "$(git -C r1-tests rev-parse HEAD)" = f17e3826d5eb115cfafeeae7bdb292d53656531d
           git -C catalog switch -c ci-context-c1
           ./m-source/m osarch update
           conf=$(./m-source/m state-path system sys pkg conf)
@@ -63,3 +71,13 @@ jobs:
         run: |
           set -eu
           ./m-source/m sh c1-tests/.github/scripts/context-real-version-replacement-test.sh
+      - name: Install genuine m-rsudo v0.1.2 release
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m pkg install 'm-rsudo@v0.1.2'
+      - name: Run genuine installed m-rsudo context and command acceptance
+        shell: sh
+        run: |
+          set -eu
+          ./m-source/m sh r1-tests/.github/scripts/r1-installed-v012-test.sh
