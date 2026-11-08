@@ -404,19 +404,21 @@ jobs:
             echo "PASS: exact/latest Windows GraalVM public package resolution and genuine artifact metadata; latest=$latest. No Windows binary installation is claimed from a Linux host."
             exit 0
           fi
-          ./m pkg install "$exact"
+          ./m pkg install graalvm
+          latest=$(./m pkg default graalvm)
+          case "$latest" in graalvm@*"!$EXPECTED_OSARCH") :;; *) printf 'Unexpected latest GraalVM default: %s\n' "$latest" >&2; exit 1;; esac
+          if [ "$latest" != "$exact" ]; then
+            ./m pkg install "$exact"
+          fi
+          versions=$(./m pkg versions graalvm)
+          printf '%s\n' "$versions"
+          case "$versions" in *"$exact"*) :;; *) echo 'exact GraalVM concrete missing after install' >&2; exit 1;; esac
+          case "$versions" in *"$latest"*) :;; *) echo 'latest GraalVM concrete missing' >&2; exit 1;; esac
           ./m pkg provider default java "$exact"
           exact_output=$(./m java -version 2>&1)
           printf '%s\n' "$exact_output"
           case "$exact_output" in *'GraalVM CE'*) :;; *) echo 'exact provider did not run GraalVM' >&2; exit 1;; esac
 
-          ./m pkg install graalvm
-          latest=$(./m pkg default graalvm)
-          case "$latest" in graalvm@*"!$EXPECTED_OSARCH") :;; *) printf 'Unexpected latest GraalVM default: %s\n' "$latest" >&2; exit 1;; esac
-          versions=$(./m pkg versions graalvm)
-          printf '%s\n' "$versions"
-          case "$versions" in *"$exact"*) :;; *) echo 'exact GraalVM concrete missing after latest install' >&2; exit 1;; esac
-          case "$versions" in *"$latest"*) :;; *) echo 'latest GraalVM concrete missing' >&2; exit 1;; esac
           ./m pkg provider default java "$latest"
           selected=$(./m pkg provider default java)
           case "$selected" in *"$latest"*) :;; *) printf 'Java provider selector is %s, expected %s\n' "$selected" "$latest" >&2; exit 1;; esac
