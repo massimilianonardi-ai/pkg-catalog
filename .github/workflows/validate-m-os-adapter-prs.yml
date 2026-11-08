@@ -149,3 +149,77 @@ jobs:
           printf '%s\n' "$versions" | grep -F '153.0.8010.12!linux-arm64' > /dev/null
           [ -d "pkg/$latest/root" ]
           echo "PASS: exact CfT anchor and current Stable installed through public pkg; latest=$latest"
+
+  geoserver-real-service:
+    name: GeoServer exact/latest and WFS service on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04-arm, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact GeoServer adapter candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: codex/geoserver-repository-adapter
+          persist-credentials: false
+      - name: Checkout exact published catalog
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
+          path: catalog
+          persist-credentials: false
+      - name: Install genuine releases and exercise the public service path
+        shell: sh
+        run: |
+          set -eu
+          test "$(git rev-parse HEAD)" = b1e4f040506592f0433e26005741f887266f4462
+          test "$(git -C catalog rev-parse HEAD)" = 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
+          ./m osarch update
+          case "$RUNNER_OS" in
+            Linux) expected_osarch=linux-arm64 ;;
+            macOS) expected_osarch=macos-arm64 ;;
+            *) echo "unsupported runner OS: $RUNNER_OS" >&2; exit 1 ;;
+          esac
+          test "$(./m osarch)" = "$expected_osarch"
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+          sh -n lib/sys/sh/pkg/repository/pkg-repository-geoserver.lib.sh
+          exact_dependencies=$(./m pkg depend geoserver@3.0.1)
+          latest_dependencies=$(./m pkg depend geoserver)
+          printf '%s\n' "$exact_dependencies" "$latest_dependencies"
+          case "$exact_dependencies" in *'temurin@21+35!'*) : ;; *) echo 'exact GeoServer request did not select Temurin 21' >&2; exit 1 ;; esac
+          case "$latest_dependencies" in *'temurin@21+35!'*) : ;; *) echo 'latest GeoServer request did not select Temurin 21' >&2; exit 1 ;; esac
+          ./m pkg install geoserver@3.0.1
+          ./m pkg install geoserver
+          versions=$(./m pkg versions geoserver)
+          printf '%s\n' "$versions"
+          case "$versions" in *"geoserver@3.0.1!$expected_osarch"*) : ;; *) echo 'exact GeoServer 3.0.1 concrete missing' >&2; exit 1 ;; esac
+          case "$versions" in *"geoserver@3.0.2!$expected_osarch"*) : ;; *) echo 'latest request did not install GeoServer 3.0.2' >&2; exit 1 ;; esac
+          ./m pkg provider default java temurin@21+35
+          ./m pkg provider default geoserver geoserver@3.0.2
+          work="$GITHUB_WORKSPACE/.geoserver-work"
+          mkdir -p -- "$work"
+          cleanup() {
+            ./m srv stop geoserver >/dev/null 2>&1 || :
+            rm -rf -- "$work"
+          }
+          trap cleanup 0
+          trap 'exit 130' HUP INT TERM
+          ./m srv start geoserver
+          i=0
+          while ! curl -fsS 'http://127.0.0.1:8080/geoserver/ows?service=WFS&version=2.0.0&request=GetCapabilities' -o "$work/wfs.xml"
+          do
+            [ "$i" -lt 30 ] || { cat "$work/wfs.xml" 2>/dev/null || :; exit 1; }
+            i=$((i + 1))
+            sleep 2
+          done
+          grep -E '<(wfs:)?WFS_Capabilities([[:space:]>])' "$work/wfs.xml" >/dev/null
+          ./m srv stop geoserver
+          trap - 0 HUP INT TERM
+          rm -rf -- "$work"
+          echo "PASS: exact/latest GeoServer installs and live WFS service on $expected_osarch"
