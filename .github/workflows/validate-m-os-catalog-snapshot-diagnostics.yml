@@ -1,4 +1,4 @@
-name: Exact m-os mixed catalog schema diagnostics
+name: Exact m-os invalid catalog schema diagnostics
 
 on:
   push:
@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  mixed-schema:
+  invalid-schema:
     strategy:
       fail-fast: false
       matrix:
@@ -26,7 +26,7 @@ jobs:
         shell: sh
         run: |
           set -eu
-          test "$(git rev-parse HEAD)" = 5df559542e7ddd5d63a2c7bc7f915e123beb3cfb
+          test "$(git rev-parse HEAD)" = b3690b0a9db54e6890e174f65a80617f8bd73d74
           ./m osarch update
           sh -n .github/scripts/m-pkg-catalog-invalid-shape.sh
           ./m shell -c '. .github/scripts/m-pkg-catalog-invalid-shape.sh'
