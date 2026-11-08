@@ -135,7 +135,6 @@ jobs:
           mkdir -p -- "$cache_root"
           cache="$cache_root/catalog"
           git clone --branch codex/m-os-adapter-runner --single-branch https://github.com/massimilianonardi-ai/pkg-catalog.git "$cache"
-          test "$(git -C "$cache" rev-parse HEAD)" = 65b3e5f4157e75eed48ffeeea66fbdd16ed32e14
           git -C "$cache" checkout --detach 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
           test "$(git -C "$cache" rev-parse HEAD)" = 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
           sh -n lib/sys/sh/pkg/repository/pkg-repository-chrome-for-testing.lib.sh
@@ -199,7 +198,6 @@ jobs:
           mkdir -p -- "$cache_root"
           cache="$cache_root/catalog"
           git clone --branch codex/m-os-adapter-runner --single-branch https://github.com/massimilianonardi-ai/pkg-catalog.git "$cache"
-          test "$(git -C "$cache" rev-parse HEAD)" = 65b3e5f4157e75eed48ffeeea66fbdd16ed32e14
           git -C "$cache" checkout --detach 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
           test "$(git -C "$cache" rev-parse HEAD)" = 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
           sh -n lib/sys/sh/pkg/repository/pkg-repository-geoserver.lib.sh
