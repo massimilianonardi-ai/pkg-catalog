@@ -334,3 +334,73 @@ jobs:
           trap - 0 HUP INT TERM
           rm -rf -- "$work"
           echo "PASS: exact 3.0.1 and latest $latest GeoServer installs and live WFS service on $expected_osarch"
+
+  graalvm-four-platforms:
+    name: GraalVM exact/latest public install on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04-arm
+            osarch: linux-arm64
+          - os: ubuntu-24.04
+            osarch: linux-x86_64
+          - os: macos-15
+            osarch: macos-arm64
+          - os: windows-2025
+            osarch: windows-x86_64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 50
+    steps:
+      - name: Checkout exact GraalVM adapter PR head
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 73b238d42966c0da1d2aebb48b50bfba59b484cf
+          persist-credentials: false
+      - name: Checkout exact package catalog
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
+          path: catalog
+          persist-credentials: false
+      - name: Install exact and latest GraalVM through public pkg commands
+        shell: bash
+        env:
+          EXPECTED_OSARCH: ${{ matrix.osarch }}
+        run: |
+          set -eu
+          test "$(git rev-parse HEAD)" = 73b238d42966c0da1d2aebb48b50bfba59b484cf
+          test "$(git -C catalog rev-parse HEAD)" = 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
+          ./m osarch update
+          test "$(./m osarch)" = "$EXPECTED_OSARCH"
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+          sh -n lib/sys/sh/pkg/repository/pkg-repository-graalvm.lib.sh
+          ./m manual --no-pager pkg-repository-graalvm.lib.sh > /dev/null
+
+          exact="graalvm@25.3.4.1!$EXPECTED_OSARCH"
+          exact_dependencies=$(./m pkg depend "$exact")
+          case "$exact_dependencies" in *"$exact"*) :;; *) echo 'exact dependency plan omitted the requested concrete' >&2; exit 1;; esac
+          ./m pkg install "$exact"
+          exact_output=$(./m java -version 2>&1)
+          printf '%s\n' "$exact_output"
+          case "$exact_output" in *'GraalVM CE'*) :;; *) echo 'exact provider did not run GraalVM' >&2; exit 1;; esac
+
+          ./m pkg install graalvm
+          latest=$(./m pkg default graalvm)
+          case "$latest" in graalvm@*"!$EXPECTED_OSARCH") :;; *) printf 'Unexpected latest GraalVM default: %s\n' "$latest" >&2; exit 1;; esac
+          versions=$(./m pkg versions graalvm)
+          printf '%s\n' "$versions"
+          case "$versions" in *"$exact"*) :;; *) echo 'exact GraalVM concrete missing after latest install' >&2; exit 1;; esac
+          case "$versions" in *"$latest"*) :;; *) echo 'latest GraalVM concrete missing' >&2; exit 1;; esac
+          ./m pkg provider default java "$latest"
+          selected=$(./m pkg provider default java)
+          case "$selected" in *"$latest"*) :;; *) printf 'Java provider selector is %s, expected %s\n' "$selected" "$latest" >&2; exit 1;; esac
+          latest_output=$(./m java -version 2>&1)
+          printf '%s\n' "$latest_output"
+          case "$latest_output" in *'GraalVM CE'*) :;; *) echo 'latest provider did not run GraalVM' >&2; exit 1;; esac
+          [ "$latest_output" != "$exact_output" ] || { echo 'exact and latest Java providers ran identical version output' >&2; exit 1; }
+          echo "PASS: exact and latest GraalVM public install/provider path on $EXPECTED_OSARCH; latest=$latest"
