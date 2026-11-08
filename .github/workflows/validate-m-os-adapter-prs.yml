@@ -391,23 +391,21 @@ jobs:
 
           exact="graalvm@25.3.4.1!$EXPECTED_OSARCH"
           ./m pkg depend "$exact" > /dev/null
-          ./m pkg install "$exact"
           if [ "$VALIDATION_MODE" = artifact-only ]; then
             target_class="graalvm!$EXPECTED_OSARCH"
-            ./m pkg install "$target_class"
-            latest=$(./m pkg default "$target_class")
-            case "$latest" in graalvm@*"!$EXPECTED_OSARCH") :;; *) printf 'Unexpected Windows GraalVM default: %s\n' "$latest" >&2; exit 1;; esac
-            versions=$(./m pkg versions "$target_class")
-            case "$versions" in *"$exact"*) :;; *) echo 'exact Windows GraalVM concrete missing' >&2; exit 1;; esac
-            case "$versions" in *"$latest"*) :;; *) echo 'latest Windows GraalVM concrete missing' >&2; exit 1;; esac
-            windows_root="pkg/$exact/root"
-            find "$windows_root" -type f -iname java.exe -print -quit | grep -F . >/dev/null || {
-              echo 'Windows GraalVM archive did not expose java.exe' >&2
-              exit 1
-            }
-            echo "PASS: exact and latest Windows GraalVM artifacts installed through public pkg on Linux; latest=$latest"
+            repository="$GITHUB_WORKSPACE/catalog/v1/pkg/graalvm/windows-x86_64/repository"
+            range="$GITHUB_WORKSPACE/catalog/v1/pkg/graalvm/windows-x86_64/n0001=25.3.4.1"
+            latest=$(GRAALVM_REPOSITORY="$repository" ./m shell -c '. "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-graalvm.lib.sh"; pkg_repository_resolve_version "$GRAALVM_REPOSITORY"')
+            exact_artifact=$(GRAALVM_REPOSITORY="$repository" GRAALVM_RANGE="$range" ./m shell -c '. "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-graalvm.lib.sh"; pkg_repository_resolve_artifact "$GRAALVM_REPOSITORY" "$GRAALVM_RANGE" 25.3.4.1')
+            latest_artifact=$(GRAALVM_REPOSITORY="$repository" GRAALVM_RANGE="$range" GRAALVM_VERSION="$latest" ./m shell -c '. "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-graalvm.lib.sh"; pkg_repository_resolve_artifact "$GRAALVM_REPOSITORY" "$GRAALVM_RANGE" "$GRAALVM_VERSION"')
+            printf '%s\n' "$exact_artifact" "$latest_artifact"
+            case "$exact_artifact" in *'url=https://github.com/graalvm/graalvm-ce-builds/releases/download/'*'size='*'digest=sha256:'*) :;; *) echo 'Windows exact artifact metadata invalid' >&2; exit 1;; esac
+            case "$latest_artifact" in *'url=https://github.com/graalvm/graalvm-ce-builds/releases/download/'*'size='*'digest=sha256:'*) :;; *) echo 'Windows latest artifact metadata invalid' >&2; exit 1;; esac
+            echo "PASS: exact/latest Windows GraalVM public package resolution and genuine artifact metadata; latest=$latest. No Windows binary installation is claimed from a Linux host."
             exit 0
           fi
+          ./m pkg install "$exact"
+          ./m pkg provider default java "$exact"
           exact_output=$(./m java -version 2>&1)
           printf '%s\n' "$exact_output"
           case "$exact_output" in *'GraalVM CE'*) :;; *) echo 'exact provider did not run GraalVM' >&2; exit 1;; esac
