@@ -48,7 +48,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 8610c0442adb332692d5e0a60355f599d144a778
+          ref: 093bed9bbf29c0828c806689db7bd3d9b00149ee
           fetch-depth: 0
           path: m-os-s
           persist-credentials: false
@@ -56,11 +56,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git -C m-os fetch ../m-os-s 8610c0442adb332692d5e0a60355f599d144a778
+          git -C m-os fetch ../m-os-s 093bed9bbf29c0828c806689db7bd3d9b00149ee
           git -C m-os -c user.name=RumiAI-CI -c user.email=ci@example.invalid \
             merge --no-ff --no-edit FETCH_HEAD
           git -C m-os merge-base --is-ancestor a78a24bd37446ac9b7d510af5facc5c110de595d HEAD
-          git -C m-os merge-base --is-ancestor 8610c0442adb332692d5e0a60355f599d144a778 HEAD
+          git -C m-os merge-base --is-ancestor 093bed9bbf29c0828c806689db7bd3d9b00149ee HEAD
           printf 'PASS: exact-source local master+S merge composition\n'
           git -C m-os log -1 --format='%H %P'
       - name: Run the original S workflow's public-command script
