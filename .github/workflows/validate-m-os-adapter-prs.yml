@@ -380,6 +380,7 @@ jobs:
           set -eu
           test "$(git rev-parse HEAD)" = 73b238d42966c0da1d2aebb48b50bfba59b484cf
           test "$(git -C catalog rev-parse HEAD)" = 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
+          git -C catalog checkout -B snapshot 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
           ./m osarch update
           test "$(./m osarch)" = "$EXPECTED_HOST_OSARCH"
           conf=$(./m state-path system sys pkg conf)
