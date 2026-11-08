@@ -19,6 +19,7 @@ jobs:
           repository: massimilianonardi-ai/m-os
           ref: a78a24bd37446ac9b7d510af5facc5c110de595d
           path: m-os-master
+          fetch-depth: 0
           persist-credentials: false
       - name: Checkout exact S candidate
         uses: actions/checkout@v4
@@ -26,6 +27,7 @@ jobs:
           repository: massimilianonardi-ai/m-os
           ref: 15a2c4f96584c07b92088e5530d4ecb09a9477b8
           path: m-os-s
+          fetch-depth: 0
           persist-credentials: false
       - name: Compose without publishing a product merge
         shell: sh
@@ -33,8 +35,13 @@ jobs:
           set -eu
           test "$(git -C m-os-master rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
           test "$(git -C m-os-s rev-parse HEAD)" = 15a2c4f96584c07b92088e5530d4ecb09a9477b8
-          git -C m-os-master fetch --no-tags ../m-os-s 15a2c4f96584c07b92088e5530d4ecb09a9477b8
           git -C m-os-master merge --no-commit --no-ff 15a2c4f96584c07b92088e5530d4ecb09a9477b8
+          test "$(git -C m-os-master rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
+          test "$(git -C m-os-master rev-parse MERGE_HEAD)" = 15a2c4f96584c07b92088e5530d4ecb09a9477b8
+          if git -C m-os-master diff HEAD --quiet -- bin/sys/srv; then
+            echo 'FAIL: composed tree did not apply S changes to bin/sys/srv' >&2
+            exit 1
+          fi
           printf 'PASS: composed master=%s candidate=%s\n' \
             "$(git -C m-os-master rev-parse HEAD)" \
             "$(git -C m-os-s rev-parse HEAD)"
