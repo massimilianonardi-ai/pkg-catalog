@@ -8,6 +8,86 @@ permissions:
   contents: read
 
 jobs:
+  srv-s1-current-master-composition:
+    name: S1 legacy live PID safety on composed current master
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact current m-os master
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: a78a24bd37446ac9b7d510af5facc5c110de595d
+          path: m-os-master
+          persist-credentials: false
+      - name: Checkout exact S candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 15a2c4f96584c07b92088e5530d4ecb09a9477b8
+          path: m-os-s
+          persist-credentials: false
+      - name: Compose without publishing a product merge
+        shell: sh
+        run: |
+          set -eu
+          test "$(git -C m-os-master rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
+          test "$(git -C m-os-s rev-parse HEAD)" = 15a2c4f96584c07b92088e5530d4ecb09a9477b8
+          git -C m-os-master fetch --no-tags ../m-os-s 15a2c4f96584c07b92088e5530d4ecb09a9477b8
+          git -C m-os-master merge --no-commit --no-ff 15a2c4f96584c07b92088e5530d4ecb09a9477b8
+          printf 'PASS: composed master=%s candidate=%s\n' \
+            "$(git -C m-os-master rev-parse HEAD)" \
+            "$(git -C m-os-s rev-parse HEAD)"
+      - name: Verify live legacy PID is rejected without process or state damage
+        working-directory: m-os-master
+        shell: sh
+        run: |
+          set -eu
+          ./m osarch update
+          service=m-s1-compose-safety
+          state_dir=$(./m state-path user sys srv run)
+          runtime_dir=$state_dir/$service
+          [ ! -e "$runtime_dir" ] && [ ! -L "$runtime_dir" ]
+          live_pid=
+          cleanup() {
+            if [ -n "$live_pid" ]; then
+              kill "$live_pid" 2>/dev/null || :
+              wait "$live_pid" 2>/dev/null || :
+            fi
+            if [ -d "$runtime_dir" ] && [ ! -L "$runtime_dir" ]; then
+              rm -rf -- "$runtime_dir"
+            fi
+          }
+          trap cleanup 0
+          trap 'exit 130' HUP INT TERM
+          sleep 90 &
+          live_pid=$!
+          kill -0 "$live_pid"
+          mkdir -p -- "$runtime_dir"
+          printf '%s\n' "$live_pid" > "$runtime_dir/pid"
+          printf '%s\n' "$live_pid" > "$runtime_dir/owner"
+          printf '%s\n' /bin/sleep > "$runtime_dir/command"
+          printf '%s\n' legacy-provider@1 > "$runtime_dir/provider"
+          status=0
+          ./m srv start "$service" > "$GITHUB_WORKSPACE/legacy-start.log" 2>&1 || status=$?
+          [ "$status" -eq 1 ] &&
+            grep -F 'live-runtime-state-invalid' "$GITHUB_WORKSPACE/legacy-start.log" >/dev/null &&
+            kill -0 "$live_pid" && [ -d "$runtime_dir" ] || {
+              cat "$GITHUB_WORKSPACE/legacy-start.log" >&2
+              echo "FAIL: legacy live PID start status=$status or process/state changed" >&2
+              exit 1
+            }
+          status=0
+          ./m srv stop -f "$service" > "$GITHUB_WORKSPACE/legacy-force-stop.log" 2>&1 || status=$?
+          [ "$status" -eq 1 ] &&
+            grep -F 'live-runtime-state-invalid' "$GITHUB_WORKSPACE/legacy-force-stop.log" >/dev/null &&
+            kill -0 "$live_pid" && [ -d "$runtime_dir" ] || {
+              cat "$GITHUB_WORKSPACE/legacy-force-stop.log" >&2
+              echo "FAIL: legacy live PID forced-stop status=$status or process/state changed" >&2
+              exit 1
+            }
+          echo 'PASS: composed current master rejects live legacy PID on start and stop -f without signaling or deleting state'
+
   gpgtools-macos-arm64:
     name: GPGTools exact artifact on macOS ARM64
     runs-on: macos-15
