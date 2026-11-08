@@ -205,13 +205,18 @@ jobs:
           case "$exact_dependencies" in *'temurin@21+35!'*) : ;; *) echo 'exact GeoServer request did not select Temurin 21' >&2; exit 1 ;; esac
           case "$latest_dependencies" in *'temurin@21+35!'*) : ;; *) echo 'latest GeoServer request did not select Temurin 21' >&2; exit 1 ;; esac
           ./m pkg install geoserver@3.0.1
-          ./m pkg install "geoserver!$expected_osarch"
+          exact=geoserver@3.0.1!$expected_osarch
+          versions=$(./m pkg versions geoserver)
+          case "$versions" in *"$exact"*) : ;; *) echo 'exact GeoServer 3.0.1 concrete missing' >&2; exit 1 ;; esac
+          ./m pkg uninstall "$exact"
+          ./m pkg install geoserver
           versions=$(./m pkg versions geoserver)
           printf '%s\n' "$versions"
-          case "$versions" in *"geoserver@3.0.1!$expected_osarch"*) : ;; *) echo 'exact GeoServer 3.0.1 concrete missing' >&2; exit 1 ;; esac
-          case "$versions" in *"geoserver@3.0.2!$expected_osarch"*) : ;; *) echo 'latest request did not install GeoServer 3.0.2' >&2; exit 1 ;; esac
+          latest=$(./m pkg default geoserver)
+          case "$latest" in geoserver@*"!$expected_osarch") : ;; *) echo "unexpected latest GeoServer concrete: $latest" >&2; exit 1 ;; esac
+          case "$versions" in *"$latest"*) : ;; *) echo 'latest GeoServer concrete missing after installation' >&2; exit 1 ;; esac
           ./m pkg provider default java temurin@21+35
-          ./m pkg provider default geoserver geoserver@3.0.2
+          ./m pkg provider default geoserver "$latest"
           work="$GITHUB_WORKSPACE/.geoserver-work"
           mkdir -p -- "$work"
           cleanup() {
@@ -232,4 +237,4 @@ jobs:
           ./m srv stop geoserver
           trap - 0 HUP INT TERM
           rm -rf -- "$work"
-          echo "PASS: exact/latest GeoServer installs and live WFS service on $expected_osarch"
+          echo "PASS: exact 3.0.1 and latest $latest GeoServer installs and live WFS service on $expected_osarch"
