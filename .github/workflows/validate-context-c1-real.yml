@@ -19,37 +19,47 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
-      - name: Checkout exact disposable v2 catalog revision
+      - name: Checkout exact current catalog main revision
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
           path: catalog
           fetch-depth: 0
           persist-credentials: false
-      - name: Checkout exact autonomous m C1 source
+      - name: Checkout exact current m master source
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 07764f66d6ed4614da1190833f354086f05fa4a5
+          ref: a78a24bd37446ac9b7d510af5facc5c110de595d
           path: m-source
+          persist-credentials: false
+      - name: Checkout pinned C1 acceptance script
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 2f08ac1a618ec6bed4478936129943398b861dc3
+          path: c1-tests
           persist-credentials: false
       - name: Configure live m with selected local catalog snapshot
         shell: sh
         run: |
           set -eu
-          [ "$(git -C catalog rev-parse HEAD)" = "$GITHUB_SHA" ]
+          test "$(git -C catalog rev-parse HEAD)" = 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
+          test "$(git -C m-source rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
+          test "$(git -C c1-tests rev-parse HEAD)" = 2f08ac1a618ec6bed4478936129943398b861dc3
           git -C catalog switch -c ci-context-c1
           ./m-source/m osarch update
           conf=$(./m-source/m state-path system sys pkg conf)
           mkdir -p -- "$conf"
           printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
-      - name: Install real published first-party releases
+      - name: Install real published first-party package versions
         shell: sh
         run: |
           set -eu
-          ./m-source/m pkg install 'm-core@v0.1.0' 'm-term@v0.1.0' 'm-rsudo@v0.1.0'
-      - name: Run genuine package C1 shell acceptance
+          ./m-source/m pkg install 'm-core@v0.1.0' 'm-core@v0.1.1' 'm-term@v0.1.0' 'm-term@v0.1.1'
+      - name: Run genuine package C1 version replacement acceptance
         shell: sh
         run: |
           set -eu
-          ./m-source/m sh m-source/.github/scripts/context-real-packages-test.sh
+          ./m-source/m sh c1-tests/.github/scripts/context-real-version-replacement-test.sh
