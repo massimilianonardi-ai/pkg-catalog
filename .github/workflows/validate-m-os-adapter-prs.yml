@@ -150,6 +150,7 @@ jobs:
           [ -d "pkg/$latest/root" ]
           latest_version=${latest#chromium@}
           latest_version=${latest_version%%!*}
+          ./m pkg default chromium "$latest"
           command_output=$(./m chromium --version)
           printf '%s\n' "$command_output"
           case "$command_output" in *"$latest_version"*) :;; *) echo "Chromium command did not run selected Stable $latest_version" >&2; exit 1;; esac
