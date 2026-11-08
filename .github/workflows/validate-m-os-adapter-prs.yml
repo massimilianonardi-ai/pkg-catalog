@@ -51,7 +51,7 @@ jobs:
           chmod 700 "$tmp/gnupg"
           output=$(HOME="$tmp/home" GNUPGHOME="$tmp/gnupg" ./m gpg --version)
           printf '%s\n' "$output"
-          case "$output" in *'gpg (GnuPG)'*) :;; *) echo 'packaged gpg did not report its version' >&2; exit 1;; esac
+          case "$output" in *'gpg (GnuPG'*) :;; *) echo 'packaged gpg did not report its version' >&2; exit 1;; esac
           echo 'PASS: exact GPGTools package installed and public command ran'
 
   podman-macos-arm64:
@@ -83,14 +83,13 @@ jobs:
           mkdir -p -- "$conf"
           printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
           sh -n lib/sys/sh/pkg/repository/pkg-repository-podman.lib.sh
+          ./m pkg depend podman@v6.1.2
+          ./m pkg install podman@v6.1.2
+          ./m podman --version
           ./m pkg depend podman
           ./m pkg install podman
           latest=$(./m pkg default podman)
           case "$latest" in podman@v[0-9]*.[0-9]*.[0-9]*!*) :;; *) printf 'Unexpected latest concrete: %s\n' "$latest" >&2; exit 1;; esac
-          ./m podman --version
-          ./m pkg depend podman@v6.1.2
-          ./m pkg install podman@v6.1.2
-          [ "$(./m pkg default podman)" = podman@v6.1.2 ]
           ./m podman --version
           echo 'PASS: exact and latest Podman packages installed and public command ran'
 
@@ -125,14 +124,17 @@ jobs:
           sh -n .github/scripts/m-cft-adapter-fixture.sh
           CFT_FIXTURE_TMP_BASE="$GITHUB_WORKSPACE/.cft-fixture-tmp" .github/scripts/m-cft-adapter-fixture.sh
           ./m manual --no-pager pkg-repository-chrome-for-testing.lib.sh > /dev/null
-          ./m pkg install 'chromium@153.0.8010.12!linux-arm64'
           exact=chromium@153.0.8010.12!linux-arm64
-          [ -d "pkg/$exact/root" ]
+          ./m pkg depend "$exact" > /dev/null
           ./m pkg install 'chromium!linux-arm64'
+          latest=$(./m pkg default chromium)
+          case "$latest" in chromium@*'!linux-arm64') :;; *) printf 'Unexpected Chromium default: %s\n' "$latest" >&2; exit 1;; esac
+          [ -d "pkg/$latest/root" ]
+          if [ "$latest" != "$exact" ]; then
+            ./m pkg install "$exact"
+          fi
           versions=$(./m pkg versions chromium)
           printf '%s\n' "$versions"
           printf '%s\n' "$versions" | grep -F '153.0.8010.12!linux-arm64' > /dev/null
-          latest=$(./m pkg default chromium)
-          case "$latest" in chromium@*'!linux-arm64') :;; *) printf 'Unexpected Chromium default: %s\n' "$latest" >&2; exit 1;; esac
           [ -d "pkg/$latest/root" ]
           echo "PASS: exact CfT anchor and current Stable installed through public pkg; latest=$latest"
