@@ -106,7 +106,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 620cf9f7a301d93a44d5702988c7bf59a8481292
+          ref: eb4e45eb6df167b6ad3780ca641f5a6d4d3abf7f
           persist-credentials: false
       - name: Checkout pinned catalog
         uses: actions/checkout@v4
@@ -202,7 +202,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 2f2e75bf66ef67ba6661fd51a9af55a05b158905
+          ref: 8703b99251c680feaa61a09b1d3109bb5d69c33a
           persist-credentials: false
       - name: Checkout pinned catalog
         uses: actions/checkout@v4
