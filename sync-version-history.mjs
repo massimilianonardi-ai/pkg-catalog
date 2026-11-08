@@ -8,10 +8,10 @@ const packageDirectory = "v1/pkg";
 const full = process.argv.length === 3 && process.argv[2] === "--full";
 if (process.argv.length > (full ? 3 : 2)) throw new Error("usage: node sync-version-history.mjs [--full]");
 
-async function history(owner, repository, known, anchor, forceFull = false) {
+async function history(owner, repository, known, anchor, type = "github", forceFull = false) {
   const identity = owner + "/" + repository;
   const scanFull = full || forceFull;
-  const key = identity + ":" + (scanFull ? "full" : "incremental") + ":" + anchor + ":" + known.join(",");
+  const key = identity + ":" + type + ":" + (scanFull ? "full" : "incremental") + ":" + anchor + ":" + known.join(",");
   const stopTag = scanFull ? (known[0] || anchor) : (known[known.length - 1] || anchor);
   if (histories.has(key)) return histories.get(key);
   const releases = [];
@@ -40,22 +40,36 @@ async function history(owner, repository, known, anchor, forceFull = false) {
   }
   const seen = new Set();
   const sorted = releases.filter(x => !x.draft && !x.prerelease).map(x => {
-    if (!versionPattern.test(x.tag_name) ||
+    let version = x.tag_name;
+    if (type === "graalvm") {
+      const match = /^(?:graal|jdk|vm)-([A-Za-z0-9][A-Za-z0-9._+~-]*)$/.exec(version);
+      if (!match) throw new Error(key + ": invalid stable GraalVM tag");
+      version = match[1];
+    }
+    if (!versionPattern.test(version) ||
         !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(x.created_at) ||
         !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(x.published_at) ||
         seen.has(x.tag_name)) throw new Error(key + ": invalid stable release");
     seen.add(x.tag_name);
-    return { tag: x.tag_name, created: x.created_at, published: x.published_at };
+    return { tag: version, upstreamTag: x.tag_name, created: x.created_at, published: x.published_at };
   }).sort((a,b) => a.created < b.created ? -1 : a.created > b.created ? 1 :
     a.published < b.published ? -1 : a.published > b.published ? 1 : 0);
   if (!sorted.length) throw new Error(key + ": no stable releases");
-  for (let i = 1; i < sorted.length; ++i) {
-    if (sorted[i].created === sorted[i-1].created &&
-        sorted[i].published === sorted[i-1].published) {
+  const normalized = [];
+  const positions = new Map();
+  for (const release of sorted) {
+    if (normalized.length && release.created === normalized[normalized.length - 1].created &&
+        release.published === normalized[normalized.length - 1].published) {
       throw new Error(key + ": ambiguous chronology");
     }
+    if (positions.has(release.tag)) {
+      if (type !== "graalvm") throw new Error(key + ": duplicate normalized version");
+      normalized[positions.get(release.tag)] = null;
+    }
+    positions.set(release.tag, normalized.length);
+    normalized.push(release);
   }
-  let tags = sorted.map(x => x.tag);
+  let tags = normalized.filter(Boolean).map(x => x.tag);
   if (!overlapped) {
     const first = known[0] || anchor;
     const minimum = tags.indexOf(first);
@@ -69,11 +83,11 @@ async function history(owner, repository, known, anchor, forceFull = false) {
     let cursor = 0;
     for (const tag of oldPrefix) {
       const position = known.indexOf(tag, cursor);
-      if (position < 0) return history(owner, repository, known, anchor, true);
+      if (position < 0) return history(owner, repository, known, anchor, type, true);
       cursor = position + 1;
     }
     if (tags.slice(0, boundary).some(tag => !known.includes(tag))) {
-      return history(owner, repository, known, anchor, true);
+      return history(owner, repository, known, anchor, type, true);
     }
     tags = known.concat(tags.slice(boundary + 1).filter(tag => !known.includes(tag)));
   }
@@ -91,7 +105,8 @@ for (const pkg of await readdir(packageDirectory, { withFileTypes: true })) {
   for (const stream of await readdir(join(packageDirectory, pkg.name), { withFileTypes: true })) {
     if (!stream.isDirectory()) continue;
     const repositoryDir = join(packageDirectory, pkg.name, stream.name, "repository");
-    if (await optionalRead(join(repositoryDir, "type")) !== "github\n") continue;
+    const repositoryType = await optionalRead(join(repositoryDir, "type"));
+    if (repositoryType !== "github\n" && repositoryType !== "graalvm\n") continue;
     const owner = (await readFile(join(repositoryDir, "owner"), "utf8")).trim();
     const repository = (await readFile(join(repositoryDir, "repository"), "utf8")).trim();
     const file = join(repositoryDir, "versions");
@@ -108,7 +123,7 @@ for (const pkg of await readdir(packageDirectory, { withFileTypes: true })) {
     if (anchors.length !== 1 || !versionPattern.test(anchors[0].slice(6))) {
       throw new Error(file + ": missing or invalid first range anchor");
     }
-    const live = await history(owner, repository, known, anchors[0].slice(6));
+    const live = await history(owner, repository, known, anchors[0].slice(6), repositoryType.slice(0, -1));
     let cursor = 0;
     for (const tag of known) {
       const position = live.indexOf(tag, cursor);
