@@ -208,8 +208,16 @@ jobs:
           exact=geoserver@3.0.1!$expected_osarch
           versions=$(./m pkg versions geoserver)
           case "$versions" in *'geoserver@3.0.1'*) : ;; *) echo 'exact GeoServer 3.0.1 concrete missing' >&2; exit 1 ;; esac
-          ./m pkg uninstall "$exact"
-          ./m pkg install geoserver
+          work="$GITHUB_WORKSPACE/.geoserver-work"
+          mkdir -p -- "$work"
+          if ./m pkg install geoserver 2> "$work/latest-install.err"; then
+            :
+          elif grep -F '[pkg-install.already-installed]' "$work/latest-install.err" >/dev/null; then
+            echo 'latest GeoServer resolves to the already installed exact release'
+          else
+            cat "$work/latest-install.err" >&2
+            exit 1
+          fi
           versions=$(./m pkg versions geoserver)
           printf '%s\n' "$versions"
           latest=$(./m pkg default geoserver)
@@ -217,8 +225,6 @@ jobs:
           case "$versions" in *"$latest"*) : ;; *) echo 'latest GeoServer concrete missing after installation' >&2; exit 1 ;; esac
           ./m pkg provider default java temurin@21+35
           ./m pkg provider default geoserver "$latest"
-          work="$GITHUB_WORKSPACE/.geoserver-work"
-          mkdir -p -- "$work"
           cleanup() {
             ./m srv stop geoserver >/dev/null 2>&1 || :
             rm -rf -- "$work"
