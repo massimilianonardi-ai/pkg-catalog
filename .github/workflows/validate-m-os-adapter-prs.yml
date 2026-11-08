@@ -207,7 +207,7 @@ jobs:
           case "$exact_dependencies" in *'temurin@21+35!'*) : ;; *) echo 'exact GeoServer request did not select Temurin 21' >&2; exit 1 ;; esac
           case "$latest_dependencies" in *'temurin@21+35!'*) : ;; *) echo 'latest GeoServer request did not select Temurin 21' >&2; exit 1 ;; esac
           ./m pkg install geoserver@3.0.1
-          ./m pkg install geoserver
+          ./m pkg install "geoserver!$expected_osarch"
           versions=$(./m pkg versions geoserver)
           printf '%s\n' "$versions"
           case "$versions" in *"geoserver@3.0.1!$expected_osarch"*) : ;; *) echo 'exact GeoServer 3.0.1 concrete missing' >&2; exit 1 ;; esac
