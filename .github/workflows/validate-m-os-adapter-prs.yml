@@ -130,7 +130,14 @@ jobs:
           ./m osarch update
           conf=$(./m state-path system sys pkg conf)
           mkdir -p -- "$conf"
-          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+          printf '%s\n' 'https://github.com/massimilianonardi-ai/pkg-catalog.git' > "$conf/catalog"
+          cache_root=$(./m state-path system sys pkg cache)
+          mkdir -p -- "$cache_root"
+          cache="$cache_root/catalog"
+          git clone --branch codex/m-os-adapter-runner --single-branch https://github.com/massimilianonardi-ai/pkg-catalog.git "$cache"
+          test "$(git -C "$cache" rev-parse HEAD)" = 2d6bb72b3b86b1be0ae5cf50edc91f89966d998d
+          git -C "$cache" checkout --detach 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
+          test "$(git -C "$cache" rev-parse HEAD)" = 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
           sh -n lib/sys/sh/pkg/repository/pkg-repository-chrome-for-testing.lib.sh
           sh -n .github/scripts/m-cft-adapter-fixture.sh
           CFT_FIXTURE_TMP_BASE="$GITHUB_WORKSPACE/.cft-fixture-tmp" .github/scripts/m-cft-adapter-fixture.sh
@@ -187,7 +194,14 @@ jobs:
           test "$(./m osarch)" = "$expected_osarch"
           conf=$(./m state-path system sys pkg conf)
           mkdir -p -- "$conf"
-          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+          printf '%s\n' 'https://github.com/massimilianonardi-ai/pkg-catalog.git' > "$conf/catalog"
+          cache_root=$(./m state-path system sys pkg cache)
+          mkdir -p -- "$cache_root"
+          cache="$cache_root/catalog"
+          git clone --branch codex/m-os-adapter-runner --single-branch https://github.com/massimilianonardi-ai/pkg-catalog.git "$cache"
+          test "$(git -C "$cache" rev-parse HEAD)" = 2d6bb72b3b86b1be0ae5cf50edc91f89966d998d
+          git -C "$cache" checkout --detach 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
+          test "$(git -C "$cache" rev-parse HEAD)" = 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
           sh -n lib/sys/sh/pkg/repository/pkg-repository-geoserver.lib.sh
           exact_dependencies=$(./m pkg depend geoserver@3.0.1)
           latest_dependencies=$(./m pkg depend geoserver)
