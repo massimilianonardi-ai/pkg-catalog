@@ -26,7 +26,7 @@ jobs:
         shell: sh
         run: |
           set -eu
-          test "$(git rev-parse HEAD)" = bfea68bd757da8f8937abfe7fafdbfddd4beb261
+          test "$(git rev-parse HEAD)" = fe0a96342812ad9940ec1b3f92d1fb22fe5a0499
           ./m osarch update
           sh -n .github/scripts/m-pkg-catalog-invalid-shape.sh
           ./m shell -c '. .github/scripts/m-pkg-catalog-invalid-shape.sh'
