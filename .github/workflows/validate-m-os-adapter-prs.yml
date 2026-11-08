@@ -97,6 +97,64 @@ jobs:
             }
           echo 'PASS: composed current master rejects live legacy PID on start and stop -f without signaling or deleting state'
 
+  adapter-prs-composed-smoke:
+    name: All five adapter PRs composed with manual and syntax smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact current m-os master
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: a78a24bd37446ac9b7d510af5facc5c110de595d
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Compose exact adapter PR heads in this disposable checkout
+        shell: sh
+        run: |
+          set -eu
+          test "$(git rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
+          git config user.name 'm-os CI composition'
+          git config user.email 'm-os-ci@example.invalid'
+          for item in \
+            '12 ff90b05d231c122c8db07659d92e32f3316709f0' \
+            '13 73b238d42966c0da1d2aebb48b50bfba59b484cf' \
+            '14 eb4e45eb6df167b6ad3780ca641f5a6d4d3abf7f' \
+            '15 17188da89999f410740036d399144a008c127417' \
+            '16 8703b99251c680feaa61a09b1d3109bb5d69c33a'
+          do
+            set -- $item
+            pr=$1
+            expected=$2
+            ref="refs/i1/pr-$pr"
+            git fetch --no-tags https://github.com/massimilianonardi-ai/m-os.git "refs/pull/$pr/head:$ref"
+            actual=$(git rev-parse "$ref")
+            test "$actual" = "$expected"
+            git merge --no-edit --no-ff "$ref"
+          done
+          git diff --check a78a24bd37446ac9b7d510af5facc5c110de595d..HEAD
+          printf 'PASS: composed master=%s with exact PR heads 12–16\n' \
+            "$(git rev-parse a78a24bd37446ac9b7d510af5facc5c110de595d)"
+      - name: Check adapter shell syntax and real manual discovery
+        shell: sh
+        run: |
+          set -eu
+          for topic in \
+            pkg-repository-geoserver.lib.sh \
+            pkg-repository-graalvm.lib.sh \
+            pkg-repository-gpgtools.lib.sh \
+            pkg-repository-podman.lib.sh \
+            pkg-repository-chrome-for-testing.lib.sh
+          do
+            sh -n "lib/sys/sh/pkg/repository/$topic"
+            ./m manual --no-pager "$topic" > "$RUNNER_TEMP/$topic"
+            cmp "res/sys/manual/$topic" "$RUNNER_TEMP/$topic"
+          done
+          sh -n tests/pkg-repository-gpgtools-fixture.sh
+          sh -n .github/scripts/m-podman-adapter-fixture.sh
+          sh -n .github/scripts/m-cft-adapter-fixture.sh
+          echo 'PASS: all five composed adapters parse and their real manuals resolve byte-for-byte'
+
   gpgtools-macos-arm64:
     name: GPGTools exact artifact on macOS ARM64
     runs-on: macos-15
