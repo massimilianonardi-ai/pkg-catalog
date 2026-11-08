@@ -8,6 +8,12 @@ const packageDirectory = "v1/pkg";
 const full = process.argv.length === 3 && process.argv[2] === "--full";
 if (process.argv.length > (full ? 3 : 2)) throw new Error("usage: node sync-version-history.mjs [--full]");
 
+function normalizedTag(tag, type) {
+  if (type !== "graalvm") return versionPattern.test(tag) ? tag : null;
+  const match = /^(?:graal|jdk|vm)-([A-Za-z0-9][A-Za-z0-9._+~-]*)$/.exec(tag);
+  return match ? match[1] : null;
+}
+
 async function history(owner, repository, known, anchor, type = "github", forceFull = false) {
   const identity = owner + "/" + repository;
   const scanFull = full || forceFull;
@@ -32,7 +38,7 @@ async function history(owner, repository, known, anchor, type = "github", forceF
     const pageItems = await response.json();
     if (!Array.isArray(pageItems)) throw new Error(key + ": invalid release response");
     releases.push(...pageItems);
-    if (pageItems.some(x => x.tag_name === stopTag && !x.draft && !x.prerelease)) {
+    if (pageItems.some(x => normalizedTag(x.tag_name, type) === stopTag && !x.draft && !x.prerelease)) {
       overlapped = !scanFull && known.length > 0;
       break;
     }
@@ -40,28 +46,20 @@ async function history(owner, repository, known, anchor, type = "github", forceF
   }
   const seen = new Set();
   const sorted = releases.filter(x => !x.draft && !x.prerelease).map(x => {
-    let version = x.tag_name;
-    if (type === "graalvm") {
-      const match = /^(?:graal|jdk|vm)-([A-Za-z0-9][A-Za-z0-9._+~-]*)$/.exec(version);
-      if (!match) throw new Error(key + ": invalid stable GraalVM tag");
-      version = match[1];
-    }
-    if (!versionPattern.test(version) ||
+    const version = normalizedTag(x.tag_name, type);
+    if (!version || !versionPattern.test(version) ||
         !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(x.created_at) ||
         !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(x.published_at) ||
         seen.has(x.tag_name)) throw new Error(key + ": invalid stable release");
     seen.add(x.tag_name);
     return { tag: version, upstreamTag: x.tag_name, created: x.created_at, published: x.published_at };
   }).sort((a,b) => a.created < b.created ? -1 : a.created > b.created ? 1 :
-    a.published < b.published ? -1 : a.published > b.published ? 1 : 0);
+    a.published < b.published ? -1 : a.published > b.published ? 1 :
+    a.upstreamTag < b.upstreamTag ? -1 : a.upstreamTag > b.upstreamTag ? 1 : 0);
   if (!sorted.length) throw new Error(key + ": no stable releases");
   const normalized = [];
   const positions = new Map();
   for (const release of sorted) {
-    if (normalized.length && release.created === normalized[normalized.length - 1].created &&
-        release.published === normalized[normalized.length - 1].published) {
-      throw new Error(key + ": ambiguous chronology");
-    }
     if (positions.has(release.tag)) {
       if (type !== "graalvm") throw new Error(key + ": duplicate normalized version");
       normalized[positions.get(release.tag)] = null;
@@ -69,7 +67,14 @@ async function history(owner, repository, known, anchor, type = "github", forceF
     positions.set(release.tag, normalized.length);
     normalized.push(release);
   }
-  let tags = normalized.filter(Boolean).map(x => x.tag);
+  const distinct = normalized.filter(Boolean);
+  for (let i = 1; i < distinct.length; ++i) {
+    if (distinct[i].created === distinct[i - 1].created &&
+        distinct[i].published === distinct[i - 1].published) {
+      throw new Error(key + ": ambiguous chronology");
+    }
+  }
+  let tags = distinct.map(x => x.tag);
   if (!overlapped) {
     const first = known[0] || anchor;
     const minimum = tags.indexOf(first);
