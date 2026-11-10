@@ -103,9 +103,12 @@ jobs:
           case "$versions" in *'graalvm@25.3.4.1!windows-x86_64'*) : ;; *) echo 'exact GraalVM anchor install missing' >&2; exit 1 ;; esac
           case "$versions" in *"$latest"*) : ;; *) echo 'selected latest concrete is not installed' >&2; exit 1 ;; esac
           ./m pkg provider default java "$latest"
-          java_output=$(./m java -version 2>&1)
+          provider=$(./m pkg provider default java)
+          test "$provider" = "$latest"
+          java_path="$PWD/facility/java/25/windows-x86_64/default/bin/java.exe"
+          test -f "$java_path"
+          test "$(readlink -f "$PWD/facility/java/25/windows-x86_64/default")" = "$(realpath "pkg/$latest")"
+          java_output=$("$java_path" -version 2>&1)
           printf '%s\n' "$java_output"
-          latest_version=${latest#graalvm@}
-          latest_version=${latest_version%%!*}
-          case "$java_output" in *"$latest_version"*) : ;; *) echo 'selected GraalVM Java provider did not report its selected version' >&2; exit 1 ;; esac
+          case "$java_output" in *GraalVM*) : ;; *) echo 'selected provider did not execute GraalVM Java' >&2; exit 1 ;; esac
           echo "PASS: exact 25.3.4.1 and stable latest $latest installed and selected on windows-x86_64"
