@@ -61,7 +61,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 11a739f4b7abfce9739ab138b8d69141ee8338c2
+          ref: 2bfb9eeb857b87d9e95913dbd60fb3c8ba1c2090
           path: m-srv-candidate
           persist-credentials: false
       - name: Build and exercise child-owning supervisor through public service path
