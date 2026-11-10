@@ -102,12 +102,20 @@ jobs:
           printf '%s\n' "$versions"
           case "$versions" in *'graalvm@25.3.4.1!windows-x86_64'*) : ;; *) echo 'exact GraalVM anchor install missing' >&2; exit 1 ;; esac
           case "$versions" in *"$latest"*) : ;; *) echo 'selected latest concrete is not installed' >&2; exit 1 ;; esac
+          echo "checkpoint: installed exact and latest ($latest)"
           ./m pkg provider default java "$latest"
+          echo 'checkpoint: provider default set'
           provider=$(./m pkg provider default java)
-          test "$provider" = "$latest"
-          test "$(readlink -f "$PWD/facility/java/25/windows-x86_64/default")" = "$(realpath "pkg/$latest")"
+          printf 'provider=%s expected=%s\n' "$provider" "$latest"
+          [ "$provider" = "$latest" ] || { echo 'provider default mismatch' >&2; exit 1; }
+          facility_default="$PWD/facility/java/25/windows-x86_64/default"
+          facility_target=$(readlink -f "$facility_default") || { echo 'facility default cannot be resolved' >&2; ls -la "$PWD/facility/java/25/windows-x86_64"; exit 1; }
+          expected_target=$(realpath "pkg/$latest") || { echo 'installed concrete path cannot be resolved' >&2; exit 1; }
+          printf 'facility-default=%s expected=%s\n' "$facility_target" "$expected_target"
+          [ "$facility_target" = "$expected_target" ] || { echo 'facility default points to wrong concrete' >&2; exit 1; }
+          echo 'checkpoint: provider facility maps to selected concrete'
           java_path="$PWD/pkg/$latest/bin/java.exe"
-          test -f "$java_path"
+          [ -f "$java_path" ] || { echo "Java executable missing: $java_path" >&2; find "pkg/$latest" -maxdepth 4 -iname 'java.exe' -print; exit 1; }
           ls -l -- "$java_path"
           file -- "$java_path"
           java_windows_path=$(cygpath -w "$java_path")
