@@ -226,16 +226,20 @@ jobs:
           git -C m-os-integrated config user.name 'Hosted candidate integrator'
           git -C m-os-integrated config user.email 'candidate-integrator@users.noreply.github.com'
           git -C m-os-integrated fetch origin \
+            refs/heads/codex/p3-pinned-catalog-ci:refs/remotes/origin/p3-pinned-catalog-ci
+          git -C m-os-integrated fetch origin \
             refs/heads/codex/c3-approved-generalized-context:refs/remotes/origin/c3-approved-generalized-context
           git -C m-os-integrated fetch origin \
             refs/heads/codex/srv-persistent-supervisor:refs/remotes/origin/srv-persistent-supervisor
           test "$(git -C m-os-integrated rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
+          test "$(git -C m-os-integrated rev-parse origin/p3-pinned-catalog-ci)" = e4eb909ecc9c38ea9b99ba5c794b6a1d1a0a0905
           test "$(git -C m-os-integrated rev-parse origin/c3-approved-generalized-context)" = 5f57a7de9881c13998ebe23100eff674fd447e17
+          git -C m-os-integrated merge --no-ff --no-edit e4eb909ecc9c38ea9b99ba5c794b6a1d1a0a0905
           test "$(git -C m-os-integrated rev-parse origin/srv-persistent-supervisor)" = d509429b0e722c0998ac787de7d74c21456e905b
           git -C m-os-integrated merge --no-ff --no-edit 5f57a7de9881c13998ebe23100eff674fd447e17
           git -C m-os-integrated merge --no-ff --no-edit d509429b0e722c0998ac787de7d74c21456e905b
           tree=$(git -C m-os-integrated rev-parse 'HEAD^{tree}')
-          test "$tree" = 6296da51240f12e31c0e1ae327c88658a7ff8baf
+          test "$tree" = ec0bddbfdf5b5127c33b0697c02356f7629d6f83
       - name: Exercise public P3/P4 provider and facility-map suites
         shell: sh
         run: |
