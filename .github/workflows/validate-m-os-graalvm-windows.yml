@@ -43,6 +43,9 @@ jobs:
           test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD^)" = 82a5df1c428f31a250e3eaba4253f33fac3ec0ac
           git -C "$GITHUB_WORKSPACE/catalog" switch --create main
           git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/main main
+          git config core.symlinks true
+          git checkout --force HEAD -- bin/ai-osarch bin/ext-osarch bin/sys-osarch
+          test -L bin/sys-osarch
           ./m osarch update
           if ! osarch_value=$(./m osarch)
           then
