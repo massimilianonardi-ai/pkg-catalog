@@ -100,3 +100,101 @@ jobs:
           ./m osarch update
           ./tools/build-srv-supervisor.sh
           .github/scripts/m-srv-provider-live.sh
+
+  integrated-c3-srv:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - name: Checkout runner branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout current m-os baseline
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: a78a24bd37446ac9b7d510af5facc5c110de595d
+          path: m-os-integrated
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Compose exact C3 and SRV candidates without updating master
+        shell: sh
+        run: |
+          set -eu
+          git -C m-os-integrated config user.name 'Hosted candidate integrator'
+          git -C m-os-integrated config user.email 'candidate-integrator@users.noreply.github.com'
+          git -C m-os-integrated fetch origin \
+            refs/heads/codex/c3-approved-generalized-context:refs/remotes/origin/c3-approved-generalized-context
+          git -C m-os-integrated fetch origin \
+            refs/heads/codex/srv-persistent-supervisor:refs/remotes/origin/srv-persistent-supervisor
+          test "$(git -C m-os-integrated rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
+          test "$(git -C m-os-integrated rev-parse origin/c3-approved-generalized-context)" = 2d4e3a1c650b199d3b0b2f60bad5a7fead81f9a6
+          test "$(git -C m-os-integrated rev-parse origin/srv-persistent-supervisor)" = d509429b0e722c0998ac787de7d74c21456e905b
+          git -C m-os-integrated merge --no-ff --no-edit 2d4e3a1c650b199d3b0b2f60bad5a7fead81f9a6
+          git -C m-os-integrated merge --no-ff --no-edit d509429b0e722c0998ac787de7d74c21456e905b
+          tree=$(git -C m-os-integrated rev-parse 'HEAD^{tree}')
+          echo "Composed candidate tree: $tree"
+          test "$tree" = 009d213b90d589fedb1c799a4531605f92dc3375
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Run the composed public context and supervisor suites
+        shell: sh
+        run: |
+          set -eu
+          cd m-os-integrated
+          chmod 755 state state/system state/system/profile state/system/profile/main
+          chmod 644 state/system/profile/.inventory
+          ./m osarch update
+          .github/scripts/m-context-shell-public.sh
+          ./m sh .github/scripts/context-store-test.sh
+          ./m sh .github/scripts/context-profile-registry-test.sh
+          ./m sh .github/scripts/state-selector-security-test.sh
+          ./m sh .github/scripts/context-libraries-test.sh
+          ./m sh .github/scripts/context-profile-launch-state-test.sh
+          ./tools/build-srv-supervisor.sh
+          .github/scripts/m-srv-supervisor-public.sh
+          echo 'PASS: composed current master + exact C3/SRV candidate suites'
+
+  integrated-srv-provider:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout runner branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout and compose current m-os with exact C3/SRV candidates
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: a78a24bd37446ac9b7d510af5facc5c110de595d
+          path: m-os-integrated
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Compose exact candidates and run genuine public provider lifecycle
+        shell: sh
+        run: |
+          set -eu
+          git -C m-os-integrated config user.name 'Hosted candidate integrator'
+          git -C m-os-integrated config user.email 'candidate-integrator@users.noreply.github.com'
+          git -C m-os-integrated fetch origin \
+            refs/heads/codex/c3-approved-generalized-context:refs/remotes/origin/c3-approved-generalized-context
+          git -C m-os-integrated fetch origin \
+            refs/heads/codex/srv-persistent-supervisor:refs/remotes/origin/srv-persistent-supervisor
+          git -C m-os-integrated merge --no-ff --no-edit 2d4e3a1c650b199d3b0b2f60bad5a7fead81f9a6
+          git -C m-os-integrated merge --no-ff --no-edit d509429b0e722c0998ac787de7d74c21456e905b
+          tree=$(git -C m-os-integrated rev-parse 'HEAD^{tree}')
+          test "$tree" = 009d213b90d589fedb1c799a4531605f92dc3375
+          cd m-os-integrated
+          chmod 755 state state/system state/system/profile state/system/profile/main
+          chmod 644 state/system/profile/.inventory
+          ./m osarch update
+          ./tools/build-srv-supervisor.sh
+          .github/scripts/m-srv-provider-live.sh
+          echo 'PASS: composed current master + exact C3/SRV real Electron public srv lifecycle'
