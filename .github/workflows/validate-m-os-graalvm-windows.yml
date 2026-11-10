@@ -44,7 +44,14 @@ jobs:
           git -C "$GITHUB_WORKSPACE/catalog" switch --create main
           git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/main main
           ./m osarch update
-          test "$(./m osarch)" = windows-x86_64
+          if ! osarch_value=$(./m osarch)
+          then
+            ls -ld -- bin/sys-osarch bin/sys-windows-x86_64
+            command -p readlink -- bin/sys-osarch || :
+            test -L bin/sys-osarch || echo 'selector is not recognized as a symlink'
+            exit 1
+          fi
+          test "$osarch_value" = windows-x86_64
           conf=$(./m state-path system sys pkg conf)
           mkdir -p -- "$conf"
           printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
