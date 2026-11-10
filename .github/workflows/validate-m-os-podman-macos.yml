@@ -1,0 +1,71 @@
+name: Validate m-os Podman adapter on macOS ARM64
+
+on:
+  push:
+    branches: [codex/gpgtools-arm64-validation]
+    paths:
+      - .github/workflows/validate-m-os-podman-macos.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  podman-macos-arm64:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact Podman adapter head
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 4ac43658096b5e484f218190186c477d63b30153
+          path: m-os
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact Podman catalog snapshot
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: c8a39f8bd099d65ed8520de574800f220d6119e1
+          path: catalog
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Execute public Podman install and CLI paths
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          test "$(uname -m)" = arm64
+          test "$(git rev-parse HEAD)" = 4ac43658096b5e484f218190186c477d63b30153
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = c8a39f8bd099d65ed8520de574800f220d6119e1
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD^)" = 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
+          git -C "$GITHUB_WORKSPACE/catalog" switch --create main
+          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/main main
+
+          ./m osarch update
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+
+          sh -n lib/sys/sh/pkg/repository/pkg-repository-podman.lib.sh
+          PODMAN_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" SHELL=/bin/sh ./m shell -c '. .github/scripts/m-podman-adapter-fixture.sh'
+
+          ./m pkg install podman
+          latest=$(./m pkg default podman)
+          test "$latest" = podman@v6.1.4!macos-arm64
+          latest_output=$(./m podman --version)
+          printf '%s\n' "$latest_output"
+          case "$latest_output" in *6.1.4*) :;; *) echo 'latest Podman version did not run' >&2; exit 1;; esac
+
+          ./m pkg install podman@v6.1.3
+          ./m pkg default podman@v6.1.3
+          exact_output=$(./m podman --version)
+          printf '%s\n' "$exact_output"
+          case "$exact_output" in *6.1.3*) :;; *) echo 'exact Podman version did not run' >&2; exit 1;; esac
+
+          versions=$(./m pkg versions podman)
+          printf '%s\n' "$versions"
+          printf '%s\n' "$versions" | grep -F 'podman@v6.1.3!macos-arm64' >/dev/null
+          printf '%s\n' "$versions" | grep -F 'podman@v6.1.4!macos-arm64' >/dev/null
+          echo 'PASS: exact v6.1.3 and latest v6.1.4 Podman artifacts installed, selected and executed'
