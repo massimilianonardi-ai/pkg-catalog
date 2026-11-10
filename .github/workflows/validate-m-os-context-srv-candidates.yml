@@ -61,7 +61,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: ec2e5ae295893226ed94b08d2efc55b368562f84
+          ref: 3d4ffbe470212b0102f282722b9aacb1ae384f31
           path: m-srv-candidate
           persist-credentials: false
       - name: Build and exercise child-owning supervisor through public service path
@@ -76,3 +76,27 @@ jobs:
           sh -n .github/scripts/m-srv-supervisor-public.sh
           .github/scripts/m-srv-supervisor-public.sh
           echo 'PASS: exact SRV-42 supervisor candidate lifecycle checks'
+
+  srv-public-lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout runner branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact SRV-42 candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 3d4ffbe470212b0102f282722b9aacb1ae384f31
+          path: m-srv-candidate
+          persist-credentials: false
+      - name: Build and exercise public srv with genuine provider
+        shell: sh
+        run: |
+          set -eu
+          cd m-srv-candidate
+          ./m osarch update
+          ./tools/build-srv-supervisor.sh
+          .github/scripts/m-srv-provider-live.sh
