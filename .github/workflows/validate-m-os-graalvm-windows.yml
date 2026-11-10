@@ -62,8 +62,8 @@ jobs:
           if [ "${status:-0}" -ne 0 ]
           then
             cp m "$RUNNER_TEMP/m-bootstrap"
-            sed -i 's/^exec "\$m_COMMAND_RESOLVED" "\$@"/exec bash -x "\$m_COMMAND_RESOLVED" "\$@"/' m
-            grep -F 'exec bash -x "$m_COMMAND_RESOLVED" "$@"' m
+            sed -i 's/^exec "\$@"/exec bash -x "\$@"/' m
+            grep -F 'exec bash -x "$@"' m
             ./m pkg depend graalvm@25.3.4.1 2> "$RUNNER_TEMP/graalvm-depend.trace" || :
             cp "$RUNNER_TEMP/m-bootstrap" m
             tail -n 500 "$RUNNER_TEMP/graalvm-depend.trace"
