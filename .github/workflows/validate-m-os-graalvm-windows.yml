@@ -52,7 +52,8 @@ jobs:
           test "$(./m osarch)" = windows-x86_64
           conf=$(./m state-path system sys pkg conf)
           mkdir -p -- "$conf"
-          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+          catalog_path=$(cygpath -u "$GITHUB_WORKSPACE/catalog")
+          printf '%s\n' "$catalog_path" > "$conf/catalog"
       - name: Resolve exact and stable-latest package requests
         working-directory: m-os
         run: |
