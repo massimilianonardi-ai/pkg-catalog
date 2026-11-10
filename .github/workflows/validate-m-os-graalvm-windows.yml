@@ -14,6 +14,8 @@ jobs:
   graalvm-windows:
     runs-on: windows-2025
     timeout-minutes: 60
+    env:
+      MSYS: winsymlinks:nativestrict
     defaults:
       run:
         shell: bash
@@ -47,14 +49,7 @@ jobs:
           git checkout --force HEAD -- bin/ai-osarch bin/ext-osarch bin/sys-osarch
           test -L bin/sys-osarch
           ./m osarch update
-          if ! osarch_value=$(./m osarch)
-          then
-            ls -ld -- bin/sys-osarch bin/sys-windows-x86_64
-            command -p readlink -- bin/sys-osarch || :
-            test -L bin/sys-osarch || echo 'selector is not recognized as a symlink'
-            exit 1
-          fi
-          test "$osarch_value" = windows-x86_64
+          test "$(./m osarch)" = windows-x86_64
           conf=$(./m state-path system sys pkg conf)
           mkdir -p -- "$conf"
           printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
