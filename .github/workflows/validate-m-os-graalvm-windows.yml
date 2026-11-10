@@ -56,9 +56,9 @@ jobs:
       - name: Resolve exact and stable-latest package requests
         working-directory: m-os
         run: |
-          set -eu
-          ./m pkg depend graalvm@25.3.4.1
-          ./m pkg depend graalvm
+          set -eux
+          m_LOG_LEVEL=trace ./m pkg depend graalvm@25.3.4.1
+          m_LOG_LEVEL=trace ./m pkg depend graalvm
       - name: Install, select and execute exact and stable-latest GraalVM
         working-directory: m-os
         run: |
