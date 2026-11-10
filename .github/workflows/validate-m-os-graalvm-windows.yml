@@ -37,7 +37,7 @@ jobs:
       - name: Validate exact source pins and initialize m
         working-directory: m-os
         run: |
-          set -eu
+          set -eux
           test "$(git rev-parse HEAD)" = d4b4e387c0748599b7389daa7cf75a18b64b42c3
           test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 50faddb36f9c3e7c12fa53d46b94dd8098fa857b
           test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD^)" = 82a5df1c428f31a250e3eaba4253f33fac3ec0ac
