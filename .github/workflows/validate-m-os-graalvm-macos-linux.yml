@@ -1,0 +1,89 @@
+name: Validate m-os GraalVM adapters on hosted POSIX targets
+
+on:
+  push:
+    branches: [codex/gpgtools-arm64-validation]
+    paths:
+      - .github/workflows/validate-m-os-graalvm-macos-linux.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  graalvm:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact GraalVM adapter and P4 candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: d4b4e387c0748599b7389daa7cf75a18b64b42c3
+          path: m-os
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact GraalVM catalog history
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 50faddb36f9c3e7c12fa53d46b94dd8098fa857b
+          path: catalog
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate exact source pins and set catalog tracking branch
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          test "$(git rev-parse HEAD)" = d4b4e387c0748599b7389daa7cf75a18b64b42c3
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 50faddb36f9c3e7c12fa53d46b94dd8098fa857b
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD^)" = 82a5df1c428f31a250e3eaba4253f33fac3ec0ac
+          git -C "$GITHUB_WORKSPACE/catalog" switch --create main
+          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/main main
+          ./m osarch update
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+      - name: Run deterministic GraalVM diagnostics and facility regressions
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          sh -n .github/scripts/m-graalvm-diagnostics-test.sh
+          GRAALVM_DIAGNOSTIC_TMP_BASE="$GITHUB_WORKSPACE/.graalvm-diagnostic-test" \
+            SHELL=/bin/sh ./m shell -c '. .github/scripts/m-graalvm-diagnostics-test.sh'
+          sh -n .github/scripts/m-pkg-p4-facility-map-unit.sh
+          /bin/sh .github/scripts/m-pkg-p4-facility-map-unit.sh
+      - name: Resolve exact and stable-latest package requests
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          ./m pkg depend graalvm@25.3.4.1 >/dev/null
+          ./m pkg depend graalvm >/dev/null
+      - name: Install, select and execute exact and stable-latest GraalVM
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          ./m pkg install graalvm
+          latest=$(./m pkg default graalvm)
+          case "$latest" in graalvm@* ) : ;; *) echo 'unversioned install did not select a GraalVM concrete' >&2; exit 1 ;; esac
+          ./m pkg install graalvm@25.3.4.1
+          osarch=$(./m osarch)
+          versions=$(./m pkg versions graalvm)
+          printf '%s\n' "$versions"
+          case "$versions" in *"graalvm@25.3.4.1!$osarch"*) : ;; *) echo 'exact GraalVM anchor install missing' >&2; exit 1 ;; esac
+          case "$versions" in *"$latest"*) : ;; *) echo 'selected latest concrete is not installed' >&2; exit 1 ;; esac
+          ./m pkg provider default java "$latest"
+          java_output=$(./m java -version 2>&1)
+          printf '%s\n' "$java_output"
+          latest_version=${latest#graalvm@}
+          latest_version=${latest_version%%!*}
+          case "$java_output" in *"$latest_version"*) : ;; *) echo 'selected GraalVM Java provider did not report its selected version' >&2; exit 1 ;; esac
+          echo "PASS: exact 25.3.4.1 and stable latest $latest installed and selected on $(./m osarch)"
