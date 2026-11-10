@@ -77,6 +77,9 @@ jobs:
               -H 'X-GitHub-Api-Version: 2026-03-10' \
               -- 'https://api.github.com/repos/graalvm/graalvm-ce-builds/releases?per_page=100&page=1' |
               ./bin/sys/json -r '.[].tag_name' | grep -x 'graal-25.3.4.1'
+            command -p -v sort
+            sort_tab=$(printf '\t')
+            printf 'b\t2\na\t1\n' | LC_ALL=C command -p sort -t "$sort_tab" -k1,1
             exit "$status"
           fi
           m_LOG_LEVEL=trace ./m pkg depend graalvm
