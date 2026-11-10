@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 2d4e3a1c650b199d3b0b2f60bad5a7fead81f9a6
+          ref: 5f57a7de9881c13998ebe23100eff674fd447e17
           path: m-context-candidate
           persist-credentials: false
       - uses: actions/setup-java@v4
@@ -132,13 +132,13 @@ jobs:
           git -C m-os-integrated fetch origin \
             refs/heads/codex/srv-persistent-supervisor:refs/remotes/origin/srv-persistent-supervisor
           test "$(git -C m-os-integrated rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
-          test "$(git -C m-os-integrated rev-parse origin/c3-approved-generalized-context)" = 2d4e3a1c650b199d3b0b2f60bad5a7fead81f9a6
+          test "$(git -C m-os-integrated rev-parse origin/c3-approved-generalized-context)" = 5f57a7de9881c13998ebe23100eff674fd447e17
           test "$(git -C m-os-integrated rev-parse origin/srv-persistent-supervisor)" = d509429b0e722c0998ac787de7d74c21456e905b
-          git -C m-os-integrated merge --no-ff --no-edit 2d4e3a1c650b199d3b0b2f60bad5a7fead81f9a6
+          git -C m-os-integrated merge --no-ff --no-edit 5f57a7de9881c13998ebe23100eff674fd447e17
           git -C m-os-integrated merge --no-ff --no-edit d509429b0e722c0998ac787de7d74c21456e905b
           tree=$(git -C m-os-integrated rev-parse 'HEAD^{tree}')
           echo "Composed candidate tree: $tree"
-          test "$tree" = 009d213b90d589fedb1c799a4531605f92dc3375
+          test "$tree" = 6296da51240f12e31c0e1ae327c88658a7ff8baf
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -187,10 +187,10 @@ jobs:
             refs/heads/codex/c3-approved-generalized-context:refs/remotes/origin/c3-approved-generalized-context
           git -C m-os-integrated fetch origin \
             refs/heads/codex/srv-persistent-supervisor:refs/remotes/origin/srv-persistent-supervisor
-          git -C m-os-integrated merge --no-ff --no-edit 2d4e3a1c650b199d3b0b2f60bad5a7fead81f9a6
+          git -C m-os-integrated merge --no-ff --no-edit 5f57a7de9881c13998ebe23100eff674fd447e17
           git -C m-os-integrated merge --no-ff --no-edit d509429b0e722c0998ac787de7d74c21456e905b
           tree=$(git -C m-os-integrated rev-parse 'HEAD^{tree}')
-          test "$tree" = 009d213b90d589fedb1c799a4531605f92dc3375
+          test "$tree" = 6296da51240f12e31c0e1ae327c88658a7ff8baf
           cd m-os-integrated
           chmod 755 state state/system state/system/profile state/system/profile/main
           chmod 644 state/system/profile/.inventory
@@ -230,12 +230,12 @@ jobs:
           git -C m-os-integrated fetch origin \
             refs/heads/codex/srv-persistent-supervisor:refs/remotes/origin/srv-persistent-supervisor
           test "$(git -C m-os-integrated rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
-          test "$(git -C m-os-integrated rev-parse origin/c3-approved-generalized-context)" = 2d4e3a1c650b199d3b0b2f60bad5a7fead81f9a6
+          test "$(git -C m-os-integrated rev-parse origin/c3-approved-generalized-context)" = 5f57a7de9881c13998ebe23100eff674fd447e17
           test "$(git -C m-os-integrated rev-parse origin/srv-persistent-supervisor)" = d509429b0e722c0998ac787de7d74c21456e905b
-          git -C m-os-integrated merge --no-ff --no-edit 2d4e3a1c650b199d3b0b2f60bad5a7fead81f9a6
+          git -C m-os-integrated merge --no-ff --no-edit 5f57a7de9881c13998ebe23100eff674fd447e17
           git -C m-os-integrated merge --no-ff --no-edit d509429b0e722c0998ac787de7d74c21456e905b
           tree=$(git -C m-os-integrated rev-parse 'HEAD^{tree}')
-          test "$tree" = 009d213b90d589fedb1c799a4531605f92dc3375
+          test "$tree" = 6296da51240f12e31c0e1ae327c88658a7ff8baf
       - name: Exercise public P3/P4 provider and facility-map suites
         shell: sh
         run: |
@@ -244,8 +244,8 @@ jobs:
           chmod 755 state state/system state/system/profile state/system/profile/main
           chmod 644 state/system/profile/.inventory
           ./m osarch update
-          /bin/sh .github/scripts/m-pkg-p3-pinned-selector.sh
           /bin/sh .github/scripts/m-pkg-p4-facility-map-unit.sh
+          /bin/sh .github/scripts/m-pkg-p3-pinned-selector.sh
           /bin/sh .github/scripts/m-pkg-p3-provider-versions.sh
           echo 'PASS: composed current master + exact C3/SRV public P3/P4 checks'
 
@@ -276,11 +276,11 @@ jobs:
           git -C m-os-integrated fetch origin \
             refs/heads/codex/srv-persistent-supervisor:refs/remotes/origin/srv-persistent-supervisor
           test "$(git -C m-os-integrated rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
-          test "$(git -C m-os-integrated rev-parse origin/c3-approved-generalized-context)" = 2d4e3a1c650b199d3b0b2f60bad5a7fead81f9a6
+          test "$(git -C m-os-integrated rev-parse origin/c3-approved-generalized-context)" = 5f57a7de9881c13998ebe23100eff674fd447e17
           test "$(git -C m-os-integrated rev-parse origin/srv-persistent-supervisor)" = d509429b0e722c0998ac787de7d74c21456e905b
-          git -C m-os-integrated merge --no-ff --no-edit 2d4e3a1c650b199d3b0b2f60bad5a7fead81f9a6
+          git -C m-os-integrated merge --no-ff --no-edit 5f57a7de9881c13998ebe23100eff674fd447e17
           git -C m-os-integrated merge --no-ff --no-edit d509429b0e722c0998ac787de7d74c21456e905b
-          test "$(git -C m-os-integrated rev-parse 'HEAD^{tree}')" = 009d213b90d589fedb1c799a4531605f92dc3375
+          test "$(git -C m-os-integrated rev-parse 'HEAD^{tree}')" = 6296da51240f12e31c0e1ae327c88658a7ff8baf
           cd m-os-integrated
           chmod 755 state state/system state/system/profile state/system/profile/main
           chmod 644 state/system/profile/.inventory
@@ -320,11 +320,11 @@ jobs:
           git -C m-os-integrated fetch origin \
             refs/heads/codex/srv-persistent-supervisor:refs/remotes/origin/srv-persistent-supervisor
           test "$(git -C m-os-integrated rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
-          test "$(git -C m-os-integrated rev-parse origin/c3-approved-generalized-context)" = 2d4e3a1c650b199d3b0b2f60bad5a7fead81f9a6
+          test "$(git -C m-os-integrated rev-parse origin/c3-approved-generalized-context)" = 5f57a7de9881c13998ebe23100eff674fd447e17
           test "$(git -C m-os-integrated rev-parse origin/srv-persistent-supervisor)" = d509429b0e722c0998ac787de7d74c21456e905b
-          git -C m-os-integrated merge --no-ff --no-edit 2d4e3a1c650b199d3b0b2f60bad5a7fead81f9a6
+          git -C m-os-integrated merge --no-ff --no-edit 5f57a7de9881c13998ebe23100eff674fd447e17
           git -C m-os-integrated merge --no-ff --no-edit d509429b0e722c0998ac787de7d74c21456e905b
-          test "$(git -C m-os-integrated rev-parse 'HEAD^{tree}')" = 009d213b90d589fedb1c799a4531605f92dc3375
+          test "$(git -C m-os-integrated rev-parse 'HEAD^{tree}')" = 6296da51240f12e31c0e1ae327c88658a7ff8baf
       - name: Checkout pinned JSONTestSuite corpus
         uses: actions/checkout@v4
         with:
