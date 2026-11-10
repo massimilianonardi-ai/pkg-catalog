@@ -108,6 +108,11 @@ jobs:
           test "$(readlink -f "$PWD/facility/java/25/windows-x86_64/default")" = "$(realpath "pkg/$latest")"
           java_path="$PWD/pkg/$latest/bin/java.exe"
           test -f "$java_path"
-          "$java_path" -version 2>&1 | tee "$RUNNER_TEMP/java-version.txt"
+          ls -l -- "$java_path"
+          file -- "$java_path"
+          java_windows_path=$(cygpath -w "$java_path")
+          powershell.exe -NoLogo -NoProfile -NonInteractive -Command \
+            "& '$java_windows_path' -version; exit \$LASTEXITCODE" 2>&1 |
+            tee "$RUNNER_TEMP/java-version.txt"
           grep -qi 'GraalVM' "$RUNNER_TEMP/java-version.txt"
           echo "PASS: exact 25.3.4.1 and stable latest $latest installed and selected on windows-x86_64"
