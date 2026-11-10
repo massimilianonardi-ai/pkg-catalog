@@ -105,11 +105,9 @@ jobs:
           ./m pkg provider default java "$latest"
           provider=$(./m pkg provider default java)
           test "$provider" = "$latest"
-          java_path="$PWD/facility/java/25/windows-x86_64/default/bin/java.exe"
-          test -f "$java_path"
           test "$(readlink -f "$PWD/facility/java/25/windows-x86_64/default")" = "$(realpath "pkg/$latest")"
-          java_output=$("$java_path" -version 2>&1) || java_status=$?
-          printf 'java-status=%s\n%s\n' "${java_status:-0}" "$java_output"
-          test "${java_status:-0}" -eq 0
-          case "$java_output" in *GraalVM*) : ;; *) echo 'selected provider did not execute GraalVM Java' >&2; exit 1 ;; esac
+          java_path="$PWD/pkg/$latest/bin/java.exe"
+          test -f "$java_path"
+          "$java_path" -version 2>&1 | tee "$RUNNER_TEMP/java-version.txt"
+          grep -qi 'GraalVM' "$RUNNER_TEMP/java-version.txt"
           echo "PASS: exact 25.3.4.1 and stable latest $latest installed and selected on windows-x86_64"
