@@ -70,5 +70,5 @@ jobs:
           chmod 700 "$tmp/gnupg"
           output=$(HOME="$tmp/home" GNUPGHOME="$tmp/gnupg" ./m gpg --version)
           printf '%s\n' "$output"
-          case "$output" in *'gpg (GnuPG)'*) :;; *) echo 'packaged gpg did not report its version' >&2; exit 1;; esac
+          printf '%s\n' "$output" | grep -Eq '^gpg \(GnuPG/[^)]+\) [0-9]' || { echo 'packaged gpg did not report a version line' >&2; exit 1; }
           echo 'PASS: exact GPGTools package installed, selected, listed and executed with isolated user state'
