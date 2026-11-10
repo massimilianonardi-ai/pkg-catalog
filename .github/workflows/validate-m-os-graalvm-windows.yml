@@ -61,6 +61,8 @@ jobs:
           m_LOG_LEVEL=trace ./m pkg depend graalvm@25.3.4.1 || status=$?
           if [ "${status:-0}" -ne 0 ]
           then
+            bash -x ./m pkg depend graalvm@25.3.4.1 2> "$RUNNER_TEMP/graalvm-depend.trace" || :
+            tail -n 500 "$RUNNER_TEMP/graalvm-depend.trace"
             conf=$(./m state-path system sys pkg conf)
             catalog=$(cat "$conf/catalog")
             printf 'catalog-config=%s\n' "$catalog"
