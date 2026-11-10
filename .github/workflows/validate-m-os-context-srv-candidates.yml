@@ -244,9 +244,9 @@ jobs:
           chmod 755 state state/system state/system/profile state/system/profile/main
           chmod 644 state/system/profile/.inventory
           ./m osarch update
-          .github/scripts/m-pkg-p3-pinned-selector.sh
-          .github/scripts/m-pkg-p4-facility-map-unit.sh
-          .github/scripts/m-pkg-p3-provider-versions.sh
+          /bin/sh .github/scripts/m-pkg-p3-pinned-selector.sh
+          /bin/sh .github/scripts/m-pkg-p4-facility-map-unit.sh
+          /bin/sh .github/scripts/m-pkg-p3-provider-versions.sh
           echo 'PASS: composed current master + exact C3/SRV public P3/P4 checks'
 
   integrated-p3-authentic-provider:
@@ -285,8 +285,8 @@ jobs:
           chmod 755 state state/system state/system/profile state/system/profile/main
           chmod 644 state/system/profile/.inventory
           ./m osarch update
-          .github/scripts/m-pkg-p3-real-ambiguity.sh
-          .github/scripts/m-pkg-p3-typed-env.sh
+          /bin/sh .github/scripts/m-pkg-p3-real-ambiguity.sh
+          /bin/sh .github/scripts/m-pkg-p3-typed-env.sh
           echo 'PASS: composed current master + exact C3/SRV authentic provider checks'
 
   integrated-json:
@@ -325,6 +325,13 @@ jobs:
           git -C m-os-integrated merge --no-ff --no-edit 2d4e3a1c650b199d3b0b2f60bad5a7fead81f9a6
           git -C m-os-integrated merge --no-ff --no-edit d509429b0e722c0998ac787de7d74c21456e905b
           test "$(git -C m-os-integrated rev-parse 'HEAD^{tree}')" = 009d213b90d589fedb1c799a4531605f92dc3375
+      - name: Checkout pinned JSONTestSuite corpus
+        uses: actions/checkout@v4
+        with:
+          repository: nst/JSONTestSuite
+          ref: 1ef36fa01286573e846ac449e8683f8833c5b26a
+          path: JSONTestSuite
+          persist-credentials: false
       - name: Exercise standalone POSIX JSON command and pinned parser corpus
         shell: sh
         run: |
@@ -333,8 +340,6 @@ jobs:
           sh -n bin/sys/json
           sh -n .github/scripts/m-json-public.sh
           .github/scripts/m-json-public.sh
-          git clone --filter=blob:none https://github.com/JSONTestSuite/JSONTestSuite.git "$RUNNER_TEMP/JSONTestSuite"
-          git -C "$RUNNER_TEMP/JSONTestSuite" checkout --detach 1ef36fa01286573e846ac449e8683f8833c5b26a
           sh -n .github/scripts/m-json-test-parsing.sh
-          .github/scripts/m-json-test-parsing.sh "$RUNNER_TEMP/JSONTestSuite/test_parsing"
+          /bin/sh .github/scripts/m-json-test-parsing.sh "$GITHUB_WORKSPACE/JSONTestSuite/test_parsing"
           echo 'PASS: composed current master + exact C3/SRV standalone JSON checks'
