@@ -1,0 +1,140 @@
+name: Validate m-os generalized context storage on hosted POSIX targets
+
+on:
+  push:
+    branches: [codex/gpgtools-arm64-validation]
+    paths:
+      - .github/workflows/validate-m-os-c3-context.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  c3-context:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact C3 source
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: e883b3bc354f738b2d889b4cc0f277a85379e69d
+          path: m-os
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify exact revision and run the public context acceptance scripts
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          test "$(git rev-parse HEAD)" = e883b3bc354f738b2d889b4cc0f277a85379e69d
+          ./m osarch update
+          ./m sh -ec '
+            . "$m_LIB_DIR/sys/sh/core.lib.sh"
+            command -v context >/dev/null
+            test_uid=$(command -p id -u)
+            test_account="$m_ROOT/state/$test_uid"
+            [ ! -e "$test_account" ] && [ ! -L "$test_account" ] || {
+              echo "INFRASTRUCTURE: account context fixture already exists" >&2
+              exit 3
+            }
+            mkdir -p "$m_PKG_DIR"
+            for item in context-a@1 context-a@2 context-b@1 context-c@1 context-d@1 context-core@1
+            do
+              mkdir -p "$m_PKG_DIR/$item/cmd"
+            done
+            context --clear-defaults
+            context --delete-preset context-ci
+            cleanup() {
+              context --clear-defaults >/dev/null 2>&1 || :
+              context --delete-preset context-ci >/dev/null 2>&1 || :
+              rm -rf -- "$m_PKG_DIR/context-a@1" "$m_PKG_DIR/context-a@2" "$m_PKG_DIR/context-b@1" "$m_PKG_DIR/context-c@1" "$m_PKG_DIR/context-d@1" "$m_PKG_DIR/context-core@1"
+              rmdir "$test_account/context" "$test_account" 2>/dev/null || :
+            }
+            trap cleanup 0
+            printf "%s\n" "#!/bin/sh" "exit 0" > "$m_PKG_DIR/context-a@1/cmd/alpha"
+            printf "%s\n" "#!/bin/sh" "exit 0" > "$m_PKG_DIR/context-a@2/cmd/alpha"
+            printf "%s\n" "#!/bin/sh" "exit 0" > "$m_PKG_DIR/context-b@1/cmd/beta"
+            printf "%s\n" "#!/bin/sh" "exit 0" > "$m_PKG_DIR/context-c@1/cmd/beta"
+            printf "%s\n" "#!/bin/sh" "exit 0" > "$m_PKG_DIR/context-d@1/cmd/delta"
+            printf "%s\n" "#!/bin/sh" "exit 0" > "$m_PKG_DIR/context-core@1/cmd/pkg"
+            chmod +x "$m_PKG_DIR/"context-*/cmd/*
+            baseline=$PATH
+            context
+            [ "$PATH" = "$baseline" ]
+            context pkg=context-a@1
+            [ "$(command -v alpha)" = "$m_PKG_DIR/context-a@1/cmd/alpha" ]
+            context pkg=context-b@1
+            [ "$(command -v beta)" = "$m_PKG_DIR/context-b@1/cmd/beta" ]
+            context pkg=context-a@2
+            [ "$(command -v alpha)" = "$m_PKG_DIR/context-a@2/cmd/alpha" ]
+            before=$PATH
+            context pkg=context-a@2
+            [ "$PATH" = "$before" ]
+            if context pkg=context-b@1 pkg=context-c@1; then exit 21; fi
+            [ "$PATH" = "$before" ]
+            if context pkg=context-core@1; then exit 22; fi
+            [ "$PATH" = "$before" ]
+            if context pkg=not-installed@1; then exit 23; fi
+            [ "$PATH" = "$before" ]
+            PATH="/tmp/context-host:$PATH"
+            context pkg=context-a@1
+            case "$PATH" in *"/tmp/context-host"*) : ;; *) exit 24 ;; esac
+            [ "$(command -v alpha)" = "$m_PKG_DIR/context-a@1/cmd/alpha" ]
+            context
+            case "$PATH" in *"$m_PKG_DIR/context-a@"*) exit 25 ;; esac
+            case "$PATH" in *"$m_PKG_DIR/context-b@"*) exit 26 ;; esac
+
+            before_store=$PATH
+            if context --set-defaults; then exit 28; else status=$?; fi
+            [ "$status" -eq 2 ]
+            context --set-defaults pkg=context-a@1
+            [ "$PATH" = "$before_store" ]
+
+            _context_store_lock "$m_ROOT" || exit 29
+            context --set-defaults pkg=context-b@1 &
+            update_b=$!
+            command -p sleep 1
+            context --set-defaults pkg=context-d@1 &
+            update_d=$!
+            command -p sleep 1
+            _context_store_unlock "$_context_store_lock_dir" || exit 30
+            wait "$update_b" || exit 31
+            wait "$update_d" || exit 32
+            context
+            [ "$(command -v alpha)" = "$m_PKG_DIR/context-a@1/cmd/alpha" ]
+            [ "$(command -v beta)" = "$m_PKG_DIR/context-b@1/cmd/beta" ]
+            [ "$(command -v delta)" = "$m_PKG_DIR/context-d@1/cmd/delta" ]
+            context pkg=context-b@1
+            [ "$(command -v alpha)" = "$m_PKG_DIR/context-a@1/cmd/alpha" ]
+            [ "$(command -v beta)" = "$m_PKG_DIR/context-b@1/cmd/beta" ]
+            context --define-preset context-ci pkg=context-b@1
+            context full-context=context-ci pkg=context-a@2
+            [ "$(command -v alpha)" = "$m_PKG_DIR/context-a@2/cmd/alpha" ]
+            [ "$(command -v beta)" = "$m_PKG_DIR/context-b@1/cmd/beta" ]
+            before_clear=$PATH
+            context --clear-defaults
+            [ "$PATH" = "$before_clear" ]
+            context
+            case "$PATH" in *"$m_PKG_DIR/context-a@"*|*"$m_PKG_DIR/context-b@"*) exit 27 ;; esac
+            context full-context=context-ci
+            [ "$(command -v beta)" = "$m_PKG_DIR/context-b@1/cmd/beta" ]
+            before_invalid_preset=$PATH
+            if context full-context=missing; then exit 28; fi
+            [ "$PATH" = "$before_invalid_preset" ]
+            context --delete-preset context-ci
+            context --clear-defaults
+            echo "PASS: POSIX context command selection/replacement"
+          '
+          ./m sh .github/scripts/context-store-test.sh
+          ./m sh .github/scripts/context-profile-registry-test.sh
+          ./m sh .github/scripts/state-selector-security-test.sh
+          ./m sh .github/scripts/context-libraries-test.sh
