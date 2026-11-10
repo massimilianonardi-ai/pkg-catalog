@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 9a1500f5150f4696e59998b19ff364f64cdde0fc
+          ref: 2d4e3a1c650b199d3b0b2f60bad5a7fead81f9a6
           path: m-context-candidate
           persist-credentials: false
       - uses: actions/setup-java@v4
