@@ -1,0 +1,39 @@
+name: Validate exact m-os host-user service candidate
+
+on:
+  push:
+    branches: [codex/m-os-srv-host-user-validation]
+
+permissions:
+  contents: read
+
+jobs:
+  host-user-lifecycle:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - name: Checkout runner branch with pinned package catalog
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact SRV-42 host-user candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: a1ae9ac1553393a953495895656992a843664808
+          path: m-srv-host-user-candidate
+          persist-credentials: false
+      - name: Run real host-user lifecycle acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd m-srv-host-user-candidate
+          ./m osarch update
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p "$conf/catalog"
+          printf '%s\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
+          sh .github/scripts/m-srv-host-user-live.sh
