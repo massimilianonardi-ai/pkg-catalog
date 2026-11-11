@@ -302,7 +302,11 @@ jobs:
           . "$m_LIB_DIR/sys/sh/core.lib.sh"
           loadsyslib json
           . "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-chrome-for-testing.lib.sh"
-          pkg_repository_resolve_version "$CFT_REPOSITORY" ${CFT_RANGE+"$CFT_RANGE"}
+          if [ -n "${CFT_RANGE:-}" ]; then
+            pkg_repository_resolve_version "$CFT_REPOSITORY" 153.0.8010.12 "$CFT_RANGE"
+          else
+            pkg_repository_resolve_version "$CFT_REPOSITORY"
+          fi
           EOS
           exact_version=$(TERM=dumb m_ROOT="$m_root" m_LIB_DIR="$m_lib_dir" CFT_REPOSITORY="$repository" CFT_RANGE="$GITHUB_WORKSPACE/catalog/v1/pkg/chromium/linux-arm64/n0001=153.0.8010.12" bash "$RUNNER_TEMP/cft-resolve.sh")
           latest_version=$(TERM=dumb m_ROOT="$m_root" m_LIB_DIR="$m_lib_dir" CFT_REPOSITORY="$repository" bash "$RUNNER_TEMP/cft-resolve.sh")
