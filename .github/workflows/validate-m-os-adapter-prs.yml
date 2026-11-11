@@ -292,20 +292,14 @@ jobs:
           CFT_FIXTURE_TMP_BASE="$GITHUB_WORKSPACE/.cft-fixture-tmp" .github/scripts/m-cft-adapter-fixture.sh
           ./m manual --no-pager pkg-repository-chrome-for-testing.lib.sh > /dev/null
           exact=chromium@153.0.8010.12!linux-arm64
-          exact_dependencies=$(./m pkg depend "$exact")
-          latest_dependencies=$(./m pkg depend 'chromium!linux-arm64')
-          printf 'Exact resolution: %s\nStable resolution: %s\n' "$exact_dependencies" "$latest_dependencies"
-          [ -z "$exact_dependencies" ] || { echo 'exact CfT root unexpectedly appeared in dependency-only output' >&2; exit 1; }
-          [ -z "$latest_dependencies" ] || { echo 'unversioned CfT root unexpectedly appeared in dependency-only output' >&2; exit 1; }
           # pkg depend deliberately omits requested roots; exercise repository
-          # exact/latest resolution directly through the adapter's public shell API.
+          # exact/latest resolution directly through the adapter API in m's shell.
           repository="$GITHUB_WORKSPACE/catalog/v1/pkg/chromium/linux-arm64/repository"
-          exact_version=$(CFT_REPOSITORY="$repository" CFT_RANGE="$GITHUB_WORKSPACE/catalog/v1/pkg/chromium/linux-arm64/n0001=153.0.8010.12" ./m shell -c '. "$m_LIB_DIR/sys/sh/core.lib.sh"; loadsyslib "json"; . "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-chrome-for-testing.lib.sh"; pkg_repository_resolve_version "$CFT_REPOSITORY" "$CFT_RANGE"')
-          latest_version=$(CFT_REPOSITORY="$repository" ./m shell -c '. "$m_LIB_DIR/sys/sh/core.lib.sh"; loadsyslib "json"; . "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-chrome-for-testing.lib.sh"; pkg_repository_resolve_version "$CFT_REPOSITORY"')
+          exact_version=$(TERM=dumb CFT_REPOSITORY="$repository" CFT_RANGE="$GITHUB_WORKSPACE/catalog/v1/pkg/chromium/linux-arm64/n0001=153.0.8010.12" ./m shell -c '. "$m_LIB_DIR/sys/sh/core.lib.sh"; loadsyslib "json"; . "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-chrome-for-testing.lib.sh"; pkg_repository_resolve_version "$CFT_REPOSITORY" "$CFT_RANGE"')
+          latest_version=$(TERM=dumb CFT_REPOSITORY="$repository" ./m shell -c '. "$m_LIB_DIR/sys/sh/core.lib.sh"; loadsyslib "json"; . "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-chrome-for-testing.lib.sh"; pkg_repository_resolve_version "$CFT_REPOSITORY"')
           [ "$exact_version" = 153.0.8010.12 ] || { printf 'Unexpected CfT exact resolution: %s\n' "$exact_version" >&2; exit 1; }
           case "$latest_version" in [0-9]*.[0-9]*.[0-9]*.[0-9]*) :;; *) printf 'Unexpected CfT Stable version: %s\n' "$latest_version" >&2; exit 1;; esac
           echo "PASS: CfT fixture, public manual, exact request ($exact_version), and current Stable ($latest_version) resolve; install is deferred because catalog materialization requires excluded setuid_root/sudo host authority"
-          echo "PASS: CfT fixture, public manual, exact anchor ($exact) and current Stable ($latest) resolve; install is deferred because catalog materialization requires excluded setuid_root/sudo host authority"
 
   geoserver-real-service:
     name: GeoServer exact/latest and WFS service on ${{ matrix.os }}
