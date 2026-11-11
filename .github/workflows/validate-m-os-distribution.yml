@@ -32,7 +32,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: cbd5188bdaa061dd04beabab0441901a3b50b325
+          ref: 600881240fcaec9e13946f013f3c08be4e95a41b
           path: m-os-candidate
           persist-credentials: false
       - name: Build, extract and test the exact-host distribution archive
