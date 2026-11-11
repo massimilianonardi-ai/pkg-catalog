@@ -170,7 +170,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/pkg-catalog
-          ref: main
+          ref: 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
           path: catalog
           persist-credentials: false
       - name: Configure isolated runtime and run authentic public package path
@@ -266,7 +266,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/pkg-catalog
-          ref: main
+          ref: 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
           path: catalog
           persist-credentials: false
       - name: Configure isolated runtime and run authentic public package path
