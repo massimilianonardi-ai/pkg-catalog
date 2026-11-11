@@ -117,7 +117,7 @@ jobs:
           git config user.name 'm-os CI composition'
           git config user.email 'm-os-ci@example.invalid'
           for item in \
-            '12 ee58d7832d524782e5d8228a6ab17d55ed74d9eb' \
+            '12 6595bb10722d596d656327c5ee3d72a13cb106c9' \
             '13 2b26a461dc673c9e4c1990b62aaa8a41ab47a03f' \
             '14 eb4e45eb6df167b6ad3780ca641f5a6d4d3abf7f' \
             '15 4ac43658096b5e484f218190186c477d63b30153' \
@@ -316,7 +316,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: ee58d7832d524782e5d8228a6ab17d55ed74d9eb
+          ref: 6595bb10722d596d656327c5ee3d72a13cb106c9
           persist-credentials: false
       - name: Checkout exact published catalog
         uses: actions/checkout@v4
@@ -329,7 +329,7 @@ jobs:
         shell: sh
         run: |
           set -eu
-          test "$(git rev-parse HEAD)" = ee58d7832d524782e5d8228a6ab17d55ed74d9eb
+          test "$(git rev-parse HEAD)" = 6595bb10722d596d656327c5ee3d72a13cb106c9
           test "$(git -C catalog rev-parse HEAD)" = 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
           ./m osarch update
           case "$RUNNER_OS" in
