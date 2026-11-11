@@ -182,7 +182,16 @@ jobs:
           ./m osarch update
           conf=$(./m state-path system sys pkg conf)
           mkdir -p -- "$conf"
-          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+          cache_root=$(./m state-path system sys pkg cache)
+          mkdir -p -- "$cache_root"
+          cache="$cache_root/catalog-source"
+          git clone --no-checkout "$GITHUB_WORKSPACE/catalog" "$cache"
+          git -C "$cache" checkout --detach 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
+          test "$(git -C "$cache" rev-parse HEAD)" = 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
+          git -C "$cache" checkout -B snapshot 0b69223a5ebe7bc042aad50012ee8bc7e4a00442
+          printf '%s\n' "$cache" > "$conf/catalog"
+          cache="$cache_root/catalog"
+          git clone --branch snapshot --single-branch "$cache_root/catalog-source" "$cache"
           sh -n lib/sys/sh/pkg/repository/pkg-repository-gpgtools.lib.sh
           sh -n tests/pkg-repository-gpgtools-fixture.sh
           GPGTOOLS_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" GPGTOOLS_FIXTURE_TMP_BASE="$GITHUB_WORKSPACE/.gpgtools-fixture" SHELL=/bin/bash ./m shell -c '. ./tests/pkg-repository-gpgtools-fixture.sh'
