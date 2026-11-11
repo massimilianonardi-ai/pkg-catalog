@@ -287,8 +287,7 @@ jobs:
           latest_dependencies=$(./m pkg depend 'chromium!linux-arm64')
           printf 'Exact dependencies: %s\nLatest dependencies: %s\n' "$exact_dependencies" "$latest_dependencies"
           case "$exact_dependencies" in *'chromium@153.0.8010.12!linux-arm64'*) :;; *) echo 'exact CfT request did not resolve the pinned anchor' >&2; exit 1;; esac
-          case "$latest_dependencies" in *'chromium@'*!linux-arm64) :;; *) printf 'Unexpected CfT Stable resolution: %s\n' "$latest_dependencies" >&2; exit 1;; esac
-          latest=$(printf '%s\n' "$latest_dependencies" | tr ' ' '\n' | sed -n '/^chromium@.*!linux-arm64$/p' | tail -n 1)
+          latest=$(printf '%s\n' "$latest_dependencies" | sed -n 's/.*→[[:space:]]*\(chromium@[^[:space:]]*!linux-arm64\).*/\1/p' | tail -n 1)
           [ -n "$latest" ] || { printf 'No concrete CfT Stable result: %s\n' "$latest_dependencies" >&2; exit 1; }
           echo "PASS: CfT fixture, public manual, exact anchor ($exact) and current Stable ($latest) resolve; install is deferred because catalog materialization requires excluded setuid_root/sudo host authority"
 
