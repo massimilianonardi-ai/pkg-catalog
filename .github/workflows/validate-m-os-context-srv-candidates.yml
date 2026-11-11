@@ -1,0 +1,349 @@
+name: Validate exact m-os context and srv candidates
+
+on:
+  push:
+    branches: [codex/m-os-srv-host-user-validation]
+
+permissions:
+  contents: read
+
+jobs:
+  context-c3:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout runner branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact C3 candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 82b08864820ff97f427d442b65841b1c0e03370d
+          path: m-context-candidate
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Run exact public context workflow and focused suites
+        shell: sh
+        run: |
+          set -eu
+          cd m-context-candidate
+          ./m osarch update
+          .github/scripts/m-context-shell-public.sh
+          ./m sh .github/scripts/context-store-test.sh
+          ./m sh .github/scripts/context-profile-registry-test.sh
+          ./m sh .github/scripts/state-selector-security-test.sh
+          ./m sh .github/scripts/context-libraries-test.sh
+          ./m sh .github/scripts/context-profile-launch-state-test.sh
+          echo 'PASS: exact C3 context candidate public and focused checks'
+
+  srv-supervisor:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - name: Checkout runner branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact SRV-42 candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: a1ae9ac1553393a953495895656992a843664808
+          path: m-srv-candidate
+          persist-credentials: false
+      - name: Build and exercise child-owning supervisor through public service path
+        shell: sh
+        run: |
+          set -eu
+          cd m-srv-candidate
+          ./m osarch update
+          ./tools/build-srv-supervisor.sh
+          sh -n bin/sys/srv
+          sh -n tools/build-srv-supervisor.sh
+          sh -n .github/scripts/m-srv-supervisor-public.sh
+          .github/scripts/m-srv-supervisor-public.sh
+          echo 'PASS: exact SRV-42 supervisor candidate lifecycle checks'
+
+  srv-public-lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout runner branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact SRV-42 candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: a1ae9ac1553393a953495895656992a843664808
+          path: m-srv-candidate
+          persist-credentials: false
+      - name: Build and exercise public srv with genuine provider
+        shell: sh
+        run: |
+          set -eu
+          cd m-srv-candidate
+          ./m osarch update
+          ./tools/build-srv-supervisor.sh
+          .github/scripts/m-srv-provider-live.sh
+
+  integrated-c3-srv:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - name: Checkout runner branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout current m-os baseline
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: a78a24bd37446ac9b7d510af5facc5c110de595d
+          path: m-os-integrated
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Compose exact C3 and SRV candidates without updating master
+        shell: sh
+        run: |
+          set -eu
+          git -C m-os-integrated config user.name 'Hosted candidate integrator'
+          git -C m-os-integrated config user.email 'candidate-integrator@users.noreply.github.com'
+          git -C m-os-integrated fetch origin \
+            refs/heads/codex/c3-approved-generalized-context:refs/remotes/origin/c3-approved-generalized-context
+          git -C m-os-integrated fetch origin \
+            refs/heads/codex/srv-persistent-supervisor:refs/remotes/origin/srv-persistent-supervisor
+          test "$(git -C m-os-integrated rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
+          test "$(git -C m-os-integrated rev-parse origin/c3-approved-generalized-context)" = 82b08864820ff97f427d442b65841b1c0e03370d
+          test "$(git -C m-os-integrated rev-parse origin/srv-persistent-supervisor)" = a1ae9ac1553393a953495895656992a843664808
+          git -C m-os-integrated merge --no-ff --no-edit 82b08864820ff97f427d442b65841b1c0e03370d
+          git -C m-os-integrated merge --no-ff --no-edit a1ae9ac1553393a953495895656992a843664808
+          tree=$(git -C m-os-integrated rev-parse 'HEAD^{tree}')
+          echo "Composed candidate tree: $tree"
+          test "$tree" = 0a9bb0d86872ce8a8c4df33100863dd4486ac01f
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Run the composed public context and supervisor suites
+        shell: sh
+        run: |
+          set -eu
+          cd m-os-integrated
+          chmod 755 state state/system state/system/profile state/system/profile/main
+          chmod 644 state/system/profile/.inventory
+          ./m osarch update
+          .github/scripts/m-context-shell-public.sh
+          ./m sh .github/scripts/context-store-test.sh
+          ./m sh .github/scripts/context-profile-registry-test.sh
+          ./m sh .github/scripts/state-selector-security-test.sh
+          ./m sh .github/scripts/context-libraries-test.sh
+          ./m sh .github/scripts/context-profile-launch-state-test.sh
+          ./tools/build-srv-supervisor.sh
+          .github/scripts/m-srv-supervisor-public.sh
+          echo 'PASS: composed current master + exact C3/SRV candidate suites'
+
+  integrated-srv-provider:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout runner branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout and compose current m-os with exact C3/SRV candidates
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: a78a24bd37446ac9b7d510af5facc5c110de595d
+          path: m-os-integrated
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Compose exact candidates and run genuine public provider lifecycle
+        shell: sh
+        run: |
+          set -eu
+          git -C m-os-integrated config user.name 'Hosted candidate integrator'
+          git -C m-os-integrated config user.email 'candidate-integrator@users.noreply.github.com'
+          git -C m-os-integrated fetch origin \
+            refs/heads/codex/c3-approved-generalized-context:refs/remotes/origin/c3-approved-generalized-context
+          git -C m-os-integrated fetch origin \
+            refs/heads/codex/srv-persistent-supervisor:refs/remotes/origin/srv-persistent-supervisor
+          git -C m-os-integrated merge --no-ff --no-edit 82b08864820ff97f427d442b65841b1c0e03370d
+          git -C m-os-integrated merge --no-ff --no-edit a1ae9ac1553393a953495895656992a843664808
+          tree=$(git -C m-os-integrated rev-parse 'HEAD^{tree}')
+          test "$tree" = 0a9bb0d86872ce8a8c4df33100863dd4486ac01f
+          cd m-os-integrated
+          chmod 755 state state/system state/system/profile state/system/profile/main
+          chmod 644 state/system/profile/.inventory
+          ./m osarch update
+          ./tools/build-srv-supervisor.sh
+          .github/scripts/m-srv-provider-live.sh
+          echo 'PASS: composed current master + exact C3/SRV real Electron public srv lifecycle'
+
+  integrated-p3-p4:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 50
+    steps:
+      - name: Checkout runner branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout current m-os baseline
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: a78a24bd37446ac9b7d510af5facc5c110de595d
+          path: m-os-integrated
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Compose exact C3 and SRV candidates without updating master
+        shell: sh
+        run: |
+          set -eu
+          git -C m-os-integrated config user.name 'Hosted candidate integrator'
+          git -C m-os-integrated config user.email 'candidate-integrator@users.noreply.github.com'
+          git -C m-os-integrated fetch origin \
+            refs/heads/codex/p3-pinned-catalog-ci:refs/remotes/origin/p3-pinned-catalog-ci
+          git -C m-os-integrated fetch origin \
+            refs/heads/codex/c3-approved-generalized-context:refs/remotes/origin/c3-approved-generalized-context
+          git -C m-os-integrated fetch origin \
+            refs/heads/codex/srv-persistent-supervisor:refs/remotes/origin/srv-persistent-supervisor
+          test "$(git -C m-os-integrated rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
+          test "$(git -C m-os-integrated rev-parse origin/p3-pinned-catalog-ci)" = e4eb909ecc9c38ea9b99ba5c794b6a1d1a0a0905
+          test "$(git -C m-os-integrated rev-parse origin/c3-approved-generalized-context)" = 82b08864820ff97f427d442b65841b1c0e03370d
+          git -C m-os-integrated merge --no-ff --no-edit e4eb909ecc9c38ea9b99ba5c794b6a1d1a0a0905
+          test "$(git -C m-os-integrated rev-parse origin/srv-persistent-supervisor)" = a1ae9ac1553393a953495895656992a843664808
+          git -C m-os-integrated merge --no-ff --no-edit 82b08864820ff97f427d442b65841b1c0e03370d
+          git -C m-os-integrated merge --no-ff --no-edit a1ae9ac1553393a953495895656992a843664808
+          tree=$(git -C m-os-integrated rev-parse 'HEAD^{tree}')
+          test "$tree" = ec0bddbfdf5b5127c33b0697c02356f7629d6f83
+      - name: Exercise public P3/P4 provider and facility-map suites
+        shell: sh
+        run: |
+          set -eu
+          cd m-os-integrated
+          chmod 755 state state/system state/system/profile state/system/profile/main
+          chmod 644 state/system/profile/.inventory
+          ./m osarch update
+          /bin/sh .github/scripts/m-pkg-p4-facility-map-unit.sh
+          /bin/sh .github/scripts/m-pkg-p3-pinned-selector.sh
+          /bin/sh .github/scripts/m-pkg-p3-provider-versions.sh
+          echo 'PASS: composed current master + exact C3/SRV public P3/P4 checks'
+
+  integrated-p3-authentic-provider:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout runner branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout current m-os baseline
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: a78a24bd37446ac9b7d510af5facc5c110de595d
+          path: m-os-integrated
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Compose exact C3 and SRV candidates and test authentic ambiguity
+        shell: sh
+        run: |
+          set -eu
+          git -C m-os-integrated config user.name 'Hosted candidate integrator'
+          git -C m-os-integrated config user.email 'candidate-integrator@users.noreply.github.com'
+          git -C m-os-integrated fetch origin \
+            refs/heads/codex/c3-approved-generalized-context:refs/remotes/origin/c3-approved-generalized-context
+          git -C m-os-integrated fetch origin \
+            refs/heads/codex/srv-persistent-supervisor:refs/remotes/origin/srv-persistent-supervisor
+          test "$(git -C m-os-integrated rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
+          test "$(git -C m-os-integrated rev-parse origin/c3-approved-generalized-context)" = 82b08864820ff97f427d442b65841b1c0e03370d
+          test "$(git -C m-os-integrated rev-parse origin/srv-persistent-supervisor)" = a1ae9ac1553393a953495895656992a843664808
+          git -C m-os-integrated merge --no-ff --no-edit 82b08864820ff97f427d442b65841b1c0e03370d
+          git -C m-os-integrated merge --no-ff --no-edit a1ae9ac1553393a953495895656992a843664808
+          test "$(git -C m-os-integrated rev-parse 'HEAD^{tree}')" = 0a9bb0d86872ce8a8c4df33100863dd4486ac01f
+          cd m-os-integrated
+          chmod 755 state state/system state/system/profile state/system/profile/main
+          chmod 644 state/system/profile/.inventory
+          ./m osarch update
+          /bin/sh .github/scripts/m-pkg-p3-real-ambiguity.sh
+          /bin/sh .github/scripts/m-pkg-p3-typed-env.sh
+          echo 'PASS: composed current master + exact C3/SRV authentic provider checks'
+
+  integrated-json:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout runner branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout current m-os baseline
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: a78a24bd37446ac9b7d510af5facc5c110de595d
+          path: m-os-integrated
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Compose exact C3 and SRV candidates without updating master
+        shell: sh
+        run: |
+          set -eu
+          git -C m-os-integrated config user.name 'Hosted candidate integrator'
+          git -C m-os-integrated config user.email 'candidate-integrator@users.noreply.github.com'
+          git -C m-os-integrated fetch origin \
+            refs/heads/codex/c3-approved-generalized-context:refs/remotes/origin/c3-approved-generalized-context
+          git -C m-os-integrated fetch origin \
+            refs/heads/codex/srv-persistent-supervisor:refs/remotes/origin/srv-persistent-supervisor
+          test "$(git -C m-os-integrated rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
+          test "$(git -C m-os-integrated rev-parse origin/c3-approved-generalized-context)" = 82b08864820ff97f427d442b65841b1c0e03370d
+          test "$(git -C m-os-integrated rev-parse origin/srv-persistent-supervisor)" = a1ae9ac1553393a953495895656992a843664808
+          git -C m-os-integrated merge --no-ff --no-edit 82b08864820ff97f427d442b65841b1c0e03370d
+          git -C m-os-integrated merge --no-ff --no-edit a1ae9ac1553393a953495895656992a843664808
+          test "$(git -C m-os-integrated rev-parse 'HEAD^{tree}')" = 0a9bb0d86872ce8a8c4df33100863dd4486ac01f
+      - name: Checkout pinned JSONTestSuite corpus
+        uses: actions/checkout@v4
+        with:
+          repository: nst/JSONTestSuite
+          ref: 1ef36fa01286573e846ac449e8683f8833c5b26a
+          path: JSONTestSuite
+          persist-credentials: false
+      - name: Exercise standalone POSIX JSON command and pinned parser corpus
+        shell: sh
+        run: |
+          set -eu
+          cd m-os-integrated
+          sh -n bin/sys/json
+          sh -n .github/scripts/m-json-public.sh
+          .github/scripts/m-json-public.sh
+          sh -n .github/scripts/m-json-test-parsing.sh
+          /bin/sh .github/scripts/m-json-test-parsing.sh "$GITHUB_WORKSPACE/JSONTestSuite/test_parsing"
+          echo 'PASS: composed current master + exact C3/SRV standalone JSON checks'
