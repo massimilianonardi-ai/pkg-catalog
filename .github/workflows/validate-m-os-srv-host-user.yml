@@ -34,6 +34,6 @@ jobs:
           cd m-srv-host-user-candidate
           ./m osarch update
           conf=$(./m state-path system sys pkg conf)
-          mkdir -p "$conf/catalog"
+          mkdir -p "$conf"
           printf '%s\n' "$GITHUB_WORKSPACE" > "$conf/catalog"
           sh .github/scripts/m-srv-host-user-live.sh
