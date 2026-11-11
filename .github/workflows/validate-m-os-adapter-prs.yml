@@ -297,8 +297,15 @@ jobs:
           repository="$GITHUB_WORKSPACE/catalog/v1/pkg/chromium/linux-arm64/repository"
           m_root=$GITHUB_WORKSPACE
           m_lib_dir=$GITHUB_WORKSPACE/lib
-          exact_version=$(TERM=dumb m_ROOT="$m_root" m_LIB_DIR="$m_lib_dir" CFT_REPOSITORY="$repository" CFT_RANGE="$GITHUB_WORKSPACE/catalog/v1/pkg/chromium/linux-arm64/n0001=153.0.8010.12" bash -c '. "$m_LIB_DIR/sys/sh/core.lib.sh"; loadsyslib "json"; . "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-chrome-for-testing.lib.sh"; pkg_repository_resolve_version "$CFT_REPOSITORY" "$CFT_RANGE"')
-          latest_version=$(TERM=dumb m_ROOT="$m_root" m_LIB_DIR="$m_lib_dir" CFT_REPOSITORY="$repository" bash -c '. "$m_LIB_DIR/sys/sh/core.lib.sh"; loadsyslib "json"; . "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-chrome-for-testing.lib.sh"; pkg_repository_resolve_version "$CFT_REPOSITORY"')
+          cat > "$RUNNER_TEMP/cft-resolve.sh" <<'EOS'
+          set -eux
+          . "$m_LIB_DIR/sys/sh/core.lib.sh"
+          loadsyslib json
+          . "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-chrome-for-testing.lib.sh"
+          pkg_repository_resolve_version "$CFT_REPOSITORY" ${CFT_RANGE+"$CFT_RANGE"}
+          EOS
+          exact_version=$(TERM=dumb m_ROOT="$m_root" m_LIB_DIR="$m_lib_dir" CFT_REPOSITORY="$repository" CFT_RANGE="$GITHUB_WORKSPACE/catalog/v1/pkg/chromium/linux-arm64/n0001=153.0.8010.12" bash "$RUNNER_TEMP/cft-resolve.sh")
+          latest_version=$(TERM=dumb m_ROOT="$m_root" m_LIB_DIR="$m_lib_dir" CFT_REPOSITORY="$repository" bash "$RUNNER_TEMP/cft-resolve.sh")
           [ "$exact_version" = 153.0.8010.12 ] || { printf 'Unexpected CfT exact resolution: %s\n' "$exact_version" >&2; exit 1; }
           case "$latest_version" in [0-9]*.[0-9]*.[0-9]*.[0-9]*) :;; *) printf 'Unexpected CfT Stable version: %s\n' "$latest_version" >&2; exit 1;; esac
           echo "PASS: CfT fixture, public manual, exact request ($exact_version), and current Stable ($latest_version) resolve; install is deferred because catalog materialization requires excluded setuid_root/sudo host authority"
