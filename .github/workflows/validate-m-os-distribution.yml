@@ -1,0 +1,52 @@
+name: Validate host-specific m distribution archives
+
+on:
+  push:
+    branches: [codex/m-os-distribution-validation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            osarch: linux-x86_64
+          - os: ubuntu-24.04-arm
+            osarch: linux-arm64
+          - os: macos-15-intel
+            osarch: macos-x86_64
+          - os: macos-15
+            osarch: macos-arm64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact SRV-42 distribution candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: cbd5188bdaa061dd04beabab0441901a3b50b325
+          path: m-os-candidate
+          persist-credentials: false
+      - name: Build, extract and test the exact-host distribution archive
+        shell: sh
+        env:
+          EXPECTED_OSARCH: ${{ matrix.osarch }}
+        run: |
+          set -eu
+          cd m-os-candidate
+          ./tools/package-m-distribution.sh
+          test -f "dist/m-os-$EXPECTED_OSARCH.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: m-os-${{ matrix.osarch }}
+          path: m-os-candidate/dist/m-os-${{ matrix.osarch }}.tar.gz
+          if-no-files-found: error
+          retention-days: 14
