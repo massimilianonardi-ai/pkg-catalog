@@ -308,6 +308,13 @@ jobs:
           m_lib_dir=$GITHUB_WORKSPACE/lib
           cat > "$RUNNER_TEMP/cft-resolve.sh" <<'EOS'
           set -eux
+          runtime_env=$(m shell -c 'printf "%s\t%s\t%s\n" "$PATH" "$m_ROOT" "$m_STATE_SYS_DIR"')
+          IFS="$(printf '\t')" read -r cft_runtime_path cft_runtime_root cft_runtime_state_sys <<EOF_RUNTIME
+          $runtime_env
+          EOF_RUNTIME
+          [ "$cft_runtime_root" = "$m_ROOT" ] || exit 1
+          PATH=$cft_runtime_path
+          export PATH m_ROOT="$cft_runtime_root" m_STATE_SYS_DIR="$cft_runtime_state_sys"
           . "$m_LIB_DIR/sys/sh/core.lib.sh"
           loadsyslib json
           . "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-chrome-for-testing.lib.sh"
