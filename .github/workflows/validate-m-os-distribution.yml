@@ -25,14 +25,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Checkout exact SRV-42 distribution candidate
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 600881240fcaec9e13946f013f3c08be4e95a41b
+          ref: ffd1ad3ac1e2762144aff0e74c60d23bb979f2cd
           path: m-os-candidate
           persist-credentials: false
       - name: Build, extract and test the exact-host distribution archive
@@ -44,7 +44,7 @@ jobs:
           cd m-os-candidate
           ./tools/package-m-distribution.sh
           test -f "dist/m-os-$EXPECTED_OSARCH.tar.gz"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: m-os-${{ matrix.osarch }}
           path: m-os-candidate/dist/m-os-${{ matrix.osarch }}.tar.gz
