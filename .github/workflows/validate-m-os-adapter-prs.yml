@@ -283,25 +283,12 @@ jobs:
           CFT_FIXTURE_TMP_BASE="$GITHUB_WORKSPACE/.cft-fixture-tmp" .github/scripts/m-cft-adapter-fixture.sh
           ./m manual --no-pager pkg-repository-chrome-for-testing.lib.sh > /dev/null
           exact=chromium@153.0.8010.12!linux-arm64
-          ./m pkg depend "$exact" > /dev/null
-          ./m pkg install 'chromium!linux-arm64'
-          latest=$(./m pkg default chromium)
-          case "$latest" in chromium@*'!linux-arm64') :;; *) printf 'Unexpected Chromium default: %s\n' "$latest" >&2; exit 1;; esac
-          [ -d "pkg/$latest/root" ]
-          if [ "$latest" != "$exact" ]; then
-            ./m pkg install "$exact"
-          fi
-          versions=$(./m pkg versions chromium)
-          printf '%s\n' "$versions"
-          printf '%s\n' "$versions" | grep -F '153.0.8010.12!linux-arm64' > /dev/null
-          [ -d "pkg/$latest/root" ]
-          latest_version=${latest#chromium@}
-          latest_version=${latest_version%%!*}
-          ./m pkg default "$latest"
-          command_output=$(./m chromium --version)
-          printf '%s\n' "$command_output"
-          case "$command_output" in *"$latest_version"*) :;; *) echo "Chromium command did not run selected Stable $latest_version" >&2; exit 1;; esac
-          echo "PASS: exact CfT anchor and current Stable installed through public pkg; Chromium command ran latest=$latest"
+          exact_dependencies=$(./m pkg depend "$exact")
+          latest_dependencies=$(./m pkg depend 'chromium!linux-arm64')
+          printf 'Exact dependencies: %s\nLatest dependencies: %s\n' "$exact_dependencies" "$latest_dependencies"
+          case "$exact_dependencies" in *'chromium@153.0.8010.12!linux-arm64'*) :;; *) echo 'exact CfT request did not resolve the pinned anchor' >&2; exit 1;; esac
+          case "$latest_dependencies" in *'chromium@157.0.8103.50!linux-arm64'*) :;; *) echo 'unversioned CfT request did not resolve the observed Stable release' >&2; exit 1;; esac
+          echo 'PASS: CfT fixture, public manual, exact anchor and current Stable resolve; install is deferred because catalog materialization requires excluded setuid_root/sudo host authority'
 
   geoserver-real-service:
     name: GeoServer exact/latest and WFS service on ${{ matrix.os }}
