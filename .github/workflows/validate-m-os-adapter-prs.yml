@@ -308,7 +308,7 @@ jobs:
           m_lib_dir=$GITHUB_WORKSPACE/lib
           cat > "$RUNNER_TEMP/cft-resolve.sh" <<'EOS'
           set -eux
-          runtime_env=$(m shell -c 'printf "%s\t%s\t%s\n" "$PATH" "$m_ROOT" "$m_STATE_SYS_DIR"')
+          runtime_env=$("$m_ROOT/m" shell -c 'printf "%s\t%s\t%s\n" "$PATH" "$m_ROOT" "$m_STATE_SYS_DIR"')
           IFS="$(printf '\t')" read -r cft_runtime_path cft_runtime_root cft_runtime_state_sys <<EOF_RUNTIME
           $runtime_env
           EOF_RUNTIME
