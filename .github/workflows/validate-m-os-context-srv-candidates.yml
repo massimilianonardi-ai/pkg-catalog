@@ -3,6 +3,7 @@ name: Validate exact m-os context and srv candidates
 on:
   push:
     branches: [codex/m-os-srv-host-user-validation]
+  workflow_dispatch:
 
 permissions:
   contents: read
