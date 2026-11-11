@@ -303,12 +303,12 @@ jobs:
           loadsyslib json
           . "$m_LIB_DIR/sys/sh/pkg/repository/pkg-repository-chrome-for-testing.lib.sh"
           if [ -n "${CFT_RANGE:-}" ]; then
-            pkg_repository_resolve_version "$CFT_REPOSITORY" 153.0.8010.12 "$CFT_RANGE"
+            pkg_repository_resolve_version "$CFT_REPOSITORY" 153.0.8010.12
           else
             pkg_repository_resolve_version "$CFT_REPOSITORY"
           fi
           EOS
-          exact_version=$(TERM=dumb m_ROOT="$m_root" m_LIB_DIR="$m_lib_dir" CFT_REPOSITORY="$repository" CFT_RANGE="$GITHUB_WORKSPACE/catalog/v1/pkg/chromium/linux-arm64/n0001=153.0.8010.12" bash "$RUNNER_TEMP/cft-resolve.sh")
+          exact_version=$(TERM=dumb m_ROOT="$m_root" m_LIB_DIR="$m_lib_dir" CFT_REPOSITORY="$repository" CFT_RANGE=153 bash "$RUNNER_TEMP/cft-resolve.sh")
           latest_version=$(TERM=dumb m_ROOT="$m_root" m_LIB_DIR="$m_lib_dir" CFT_REPOSITORY="$repository" bash "$RUNNER_TEMP/cft-resolve.sh")
           [ "$exact_version" = 153.0.8010.12 ] || { printf 'Unexpected CfT exact resolution: %s\n' "$exact_version" >&2; exit 1; }
           case "$latest_version" in [0-9]*.[0-9]*.[0-9]*.[0-9]*) :;; *) printf 'Unexpected CfT Stable version: %s\n' "$latest_version" >&2; exit 1;; esac
