@@ -187,7 +187,6 @@ jobs:
             refs/heads/codex/c3-approved-generalized-context:refs/remotes/origin/c3-approved-generalized-context
           git -C m-os-integrated fetch origin \
             refs/heads/codex/srv-persistent-supervisor:refs/remotes/origin/srv-persistent-supervisor
-          git -C m-os-integrated merge --no-ff --no-edit 82b08864820ff97f427d442b65841b1c0e03370d
           git -C m-os-integrated merge --no-ff --no-edit a1ae9ac1553393a953495895656992a843664808
           tree=$(git -C m-os-integrated rev-parse 'HEAD^{tree}')
           test "$tree" = 4246074fabd260e31ee032ac0731ff3cdd28f4ab
@@ -234,10 +233,12 @@ jobs:
           test "$(git -C m-os-integrated rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
           test "$(git -C m-os-integrated rev-parse origin/p3-pinned-catalog-ci)" = e4eb909ecc9c38ea9b99ba5c794b6a1d1a0a0905
           test "$(git -C m-os-integrated rev-parse origin/c3-approved-generalized-context)" = 82b08864820ff97f427d442b65841b1c0e03370d
-          git -C m-os-integrated merge --no-ff --no-edit e4eb909ecc9c38ea9b99ba5c794b6a1d1a0a0905
           test "$(git -C m-os-integrated rev-parse origin/srv-persistent-supervisor)" = a1ae9ac1553393a953495895656992a843664808
           git -C m-os-integrated merge --no-ff --no-edit 82b08864820ff97f427d442b65841b1c0e03370d
           git -C m-os-integrated merge --no-ff --no-edit a1ae9ac1553393a953495895656992a843664808
+          git -C m-os-integrated merge --no-ff --no-edit e4eb909ecc9c38ea9b99ba5c794b6a1d1a0a0905
+          git -C m-os-integrated merge --no-ff --no-edit d4b4e387c0748599b7389daa7cf75a18b64b42c3
+          test "$(git -C m-os-integrated rev-parse 'HEAD^{tree}')" = db73c81d9ce2a591ac453f1c588229455383956d
           tree=$(git -C m-os-integrated rev-parse 'HEAD^{tree}')
           test "$tree" = ec0bddbfdf5b5127c33b0697c02356f7629d6f83
       - name: Exercise public P3/P4 provider and facility-map suites
