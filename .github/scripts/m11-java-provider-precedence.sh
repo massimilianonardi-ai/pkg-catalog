@@ -63,10 +63,10 @@ m11_check_java()
     *"java.home = $expected_root"*) :;;
     *) printf 'FAIL: public java root mismatch, expected %s\n%s\n' "$expected_root" "$output" >&2; return 1;;
   esac
-  case "$output" in
-    *"version \"$expected_feature."*) :;;
-    *) printf 'FAIL: public java feature mismatch, expected %s\n%s\n' "$expected_feature" "$output" >&2; return 1;;
-  esac
+  if ! printf '%s\n' "$output" | command -p grep -E -q "version \"${expected_feature}(\\.[0-9]+)*\""; then
+    printf 'FAIL: public java feature mismatch, expected %s\n%s\n' "$expected_feature" "$output" >&2
+    return 1
+  fi
 }
 
 m11_check_maven()
