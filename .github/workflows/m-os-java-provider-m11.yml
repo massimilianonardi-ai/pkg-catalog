@@ -59,9 +59,10 @@ jobs:
         shell: sh
         run: |
           set -eu
-          sh -n runner/.github/scripts/m11-java-provider-precedence.sh
-          cp runner/.github/scripts/m11-java-provider-precedence.sh m-source/.m11-java-provider-precedence.sh
-          cd m-source
-          trap 'rm -f -- .m11-java-provider-precedence.sh' 0 HUP INT TERM
-          sh -n .m11-java-provider-precedence.sh
-          ./m sh .m11-java-provider-precedence.sh
+          temp_dir=m-source/.m11-java-provider-test
+          test ! -e "$temp_dir" && test ! -L "$temp_dir"
+          mkdir "$temp_dir"
+          cp runner/.github/scripts/m11-java-provider-precedence.sh "$temp_dir/run.sh"
+          trap 'rm -f -- "$temp_dir/run.sh"; rmdir -- "$temp_dir"' 0 HUP INT TERM
+          sh -n "$temp_dir/run.sh"
+          (cd m-source && ./m sh .m11-java-provider-test/run.sh)
