@@ -1,0 +1,39 @@
+name: Validate m host-user profile binding on pinned m-os and catalog
+
+on:
+  push:
+    branches: [codex/m-os-c3-srv-profile-validation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  host-user-profile:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout exact catalog baseline
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          path: catalog
+          persist-credentials: false
+      - name: Checkout m-os integration candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 9d4c288d
+          path: m-os
+          persist-credentials: false
+      - name: Build supervisor and run public host-user profile lifecycle regressions
+        shell: sh
+        run: |
+          cd m-os
+          ./tools/build-srv-supervisor.sh
+          ./.github/scripts/m-srv-host-user-profile-public.sh
