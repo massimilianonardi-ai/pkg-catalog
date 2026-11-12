@@ -1,5 +1,5 @@
 #!/bin/sh
-set -eu
+set -eux
 [ -n "${m_ROOT:-}" ] && [ -n "${m_PKG_DIR:-}" ] || exit 1
 . "$m_LIB_DIR/sys/sh/core.lib.sh" || exit 2
 m="$m_ROOT/m"
