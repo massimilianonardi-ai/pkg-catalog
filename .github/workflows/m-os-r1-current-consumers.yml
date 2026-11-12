@@ -44,13 +44,16 @@ jobs:
       - name: Pin exact sources and configure the real local catalog
         shell: sh
         run: |
-          set -eu
+          set -eux
           test "$(git -C catalog rev-parse HEAD)" = "$GITHUB_SHA"
           test "$GITHUB_SHA" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
           test "$(git -C m-source rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
           test "$(git -C rsudo rev-parse HEAD)" = f17e3826d5eb115cfafeeae7bdb292d53656531d
+          echo 'MARK: exact source pins verified'
           (cd m-source && ./m osarch update)
+          echo 'MARK: osarch update completed'
           conf=$(m-source/m state-path system sys pkg conf)
+          echo "MARK: state-path returned $conf"
           mkdir -p -- "$conf"
           printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
           printf '%s\n' 'PASS: exact current source pins and local catalog configured'
