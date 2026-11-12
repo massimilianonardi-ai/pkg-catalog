@@ -49,12 +49,11 @@ jobs:
           test "$GITHUB_SHA" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
           test "$(git -C m-source rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
           test "$(git -C rsudo rev-parse HEAD)" = f17e3826d5eb115cfafeeae7bdb292d53656531d
-          m_osarch=$(m-source/m osarch update)
-          test -n "$m_osarch"
+          (cd m-source && ./m osarch update)
           conf=$(m-source/m state-path system sys pkg conf)
           mkdir -p -- "$conf"
           printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
-          printf 'PASS: exact current source pins and local catalog configured (%s)\n' "$m_osarch"
+          printf '%s\n' 'PASS: exact current source pins and local catalog configured'
       - name: Install published packages and exercise real public consumers
         shell: sh
         run: |
