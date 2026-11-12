@@ -88,10 +88,10 @@ m11_check_maven()
     printf 'FAIL: contextual Maven command status=%s\n%s\n' "$status" "$output" >&2
     return 1
   fi
-  case "$output" in
-    *"Java version: $expected_feature."*) :;;
-    *) printf 'FAIL: Maven Java feature mismatch, expected %s\n%s\n' "$expected_feature" "$output" >&2; return 1;;
-  esac
+  if ! printf '%s\n' "$output" | command -p grep -E -q "Java version: ${expected_feature}(\\.[0-9]+)*[,[:space:]]"; then
+    printf 'FAIL: Maven Java feature mismatch, expected %s\n%s\n' "$expected_feature" "$output" >&2
+    return 1
+  fi
   case "$output" in
     *"$expected_root"*) :;;
     *) printf 'FAIL: Maven runtime root mismatch, expected %s\n%s\n' "$expected_root" "$output" >&2; return 1;;
