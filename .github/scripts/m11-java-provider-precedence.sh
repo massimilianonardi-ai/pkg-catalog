@@ -48,7 +48,7 @@ maven_concrete=$(printf '%s\n' "$maven_versions" | command -p grep -F 'maven@4.0
   printf 'FAIL: Maven exact concrete missing; got:\n%s\n' "$maven_versions" >&2
   exit 10
 }
-"$m" pkg default maven "$maven_concrete"
+"$m" pkg default "$maven_concrete"
 [ "$("$m" pkg default maven)" = "$maven_concrete" ] || exit 11
 
 m11_check_java()
