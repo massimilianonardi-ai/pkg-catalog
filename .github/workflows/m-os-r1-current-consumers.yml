@@ -1,0 +1,82 @@
+name: R1 current-source released package consumers
+
+on:
+  push:
+    branches: [codex/m-os-r1-current-consumer-ci]
+    paths:
+      - .github/workflows/m-os-r1-current-consumers.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  released-consumers:
+    name: m-core m-term m-rsudo (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact current pkg-catalog revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: catalog
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact current m-os master
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: a78a24bd37446ac9b7d510af5facc5c110de595d
+          path: m-source
+          persist-credentials: false
+      - name: Checkout released rsudo consumer test
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-rsudo
+          ref: f17e3826d5eb115cfafeeae7bdb292d53656531d
+          path: rsudo
+          persist-credentials: false
+      - name: Pin exact sources and configure the real local catalog
+        shell: sh
+        run: |
+          set -eu
+          test "$(git -C catalog rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_SHA" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          test "$(git -C m-source rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
+          test "$(git -C rsudo rev-parse HEAD)" = f17e3826d5eb115cfafeeae7bdb292d53656531d
+          m_osarch=$(m-source/m osarch update)
+          test -n "$m_osarch"
+          conf=$(m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+          printf 'PASS: exact current source pins and local catalog configured (%s)\n' "$m_osarch"
+      - name: Install published packages and exercise real public consumers
+        shell: sh
+        run: |
+          set -eu
+          cd m-source
+          ./m pkg install m-core@v0.1.1 m-term@v0.1.1 m-rsudo@v0.1.2
+          ./m sh ../rsudo/.github/scripts/r1-installed-v012-test.sh
+          printf 'PASS: published m-core v0.1.1, m-term v0.1.1 and m-rsudo v0.1.2 public consumers\n'
+      - name: Uninstall exact roots and verify package state removal
+        shell: sh
+        run: |
+          set -eu
+          cd m-source
+          pkg_dir=$(./m sh -c 'printf "%s" "$m_PKG_DIR"')
+          ./m pkg uninstall m-rsudo@v0.1.2
+          ./m pkg uninstall m-term@v0.1.1
+          ./m pkg uninstall m-core@v0.1.1
+          for concrete in m-core@v0.1.1 m-term@v0.1.1 m-rsudo@v0.1.2
+          do
+            if [ -e "$pkg_dir/$concrete" ] || [ -L "$pkg_dir/$concrete" ]; then
+              printf 'FAIL: package concrete remains after uninstall: %s\n' "$concrete" >&2
+              exit 1
+            fi
+          done
+          printf 'PASS: all exact published roots uninstalled and concrete trees removed\n'
