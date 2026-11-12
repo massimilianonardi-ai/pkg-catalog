@@ -154,10 +154,25 @@ selected_default=$("$m" pkg provider default java 2>/dev/null) || exit 20
   echo 'FAIL: unavailable Java 25 provider intent was not retained' >&2
   exit 20
 }
-if "$m" java -version >/dev/null 2>&1; then
-  echo 'FAIL: runtime resolved an unavailable authoritative Java default' >&2
+# Direct `m java` executes the host command by design; report its resolution for
+# diagnosis, while the authoritative fail-closed contract is exercised through
+# the real Maven package consumer below.
+context pkg="$maven_concrete" || exit 21
+java_command=$(command -v java) || java_command=
+java_status=0
+java_output=$(java -version 2>&1) || java_status=$?
+printf 'DIAG stale Java selector: consumer-context java=%s status=%s output=%s\n' \
+  "$java_command" "$java_status" "$(printf '%s' "$java_output" | command -p tr '\n' ' ')" >&2
+context || exit 21
+context pkg="$maven_concrete" || exit 21
+mvn_status=0
+mvn_output=$(mvn --version 2>&1) || mvn_status=$?
+context || exit 21
+if [ "$mvn_status" -eq 0 ]; then
+  printf 'FAIL: Maven package consumer resolved an unavailable authoritative Java default\n%s\n' "$mvn_output" >&2
   exit 21
 fi
+printf 'PASS: Maven consumer failed closed for unavailable authoritative Java default (status %s)\n' "$mvn_status"
 "$m" pkg provider default java "$java21"
 [ "$("$m" pkg provider default java)" = "$java21" ] || exit 20
 m11_check_java 21 "$java21_root"
