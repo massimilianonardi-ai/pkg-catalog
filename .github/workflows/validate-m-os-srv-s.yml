@@ -105,8 +105,15 @@ jobs:
               if line.strip() and not line.startswith("          "):
                   break
               script.append(line[10:] if line.startswith("          ") else "\n")
-          if not script or not "".join(script).lstrip().startswith("set -eu"):
+          script_text = "".join(script)
+          workflow_name = pathlib.Path(sys.argv[1]).name
+          if not script_text.strip():
               raise SystemExit("INFRASTRUCTURE: source workflow shell block changed unexpectedly")
+          if workflow_name == "m-srv-provider-live.yml":
+              if script_text.strip() != ".github/scripts/m-srv-provider-live.sh":
+                  raise SystemExit("INFRASTRUCTURE: provider workflow no longer invokes its checked-in public test script")
+          elif not script_text.lstrip().startswith("set -eu"):
+              raise SystemExit("INFRASTRUCTURE: inline S workflow shell block changed unexpectedly")
           pathlib.Path(sys.argv[2]).write_text("".join(script), encoding="utf-8")
           PY
           /bin/sh -n "$RUNNER_TEMP/m-os-srv-script.sh"
