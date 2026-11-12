@@ -6,9 +6,15 @@ on:
       - main
     paths:
       - sync-version-history.mjs
+      - v1/pkg/graalvm/**/repository/versions
       - .github/workflows/sync-version-history.yml
   schedule:
     - cron: "17 2 * * *"
+  pull_request:
+    paths:
+      - sync-version-history.mjs
+      - v1/pkg/graalvm/**/repository/versions
+      - .github/workflows/sync-version-history.yml
   workflow_dispatch:
 
 permissions:
@@ -38,6 +44,7 @@ jobs:
             node sync-version-history.mjs
           fi
       - name: Publish changes
+        if: github.event_name != 'pull_request'
         run: |
           git add -- v1/pkg
           if ! git diff --cached --quiet; then
