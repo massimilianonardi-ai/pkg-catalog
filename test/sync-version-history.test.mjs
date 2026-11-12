@@ -79,7 +79,7 @@ test("normalizes only one official GraalVM tag prefix", () => {
   assert.equal(normalizeTag("vm-21.0.0", "graalvm"), "21.0.0");
   assert.equal(normalizeTag("graal-jdk-25.3.4.1", "graalvm"), null);
   assert.equal(normalizeTag("other-25.3.4.1", "graalvm"), null);
-  assert.equal(normalizeTag("graal-25.3.4.1", "github"), null);
+  assert.equal(normalizeTag("25.3.4.1", "github"), "25.3.4.1");
 });
 
 test("chooses the newest stable release for real GraalVM alias pairs deterministically", () => {

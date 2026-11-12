@@ -171,6 +171,9 @@ export async function syncVersionHistories({ packageDirectory = "v1/pkg", fetchI
       const owner = (await readFile(join(repositoryDir, "owner"), "utf8")).trim();
       const repository = (await readFile(join(repositoryDir, "repository"), "utf8")).trim();
       const streamName = pkg.name + "/" + stream.name;
+      if (type === "graalvm" && !graalvmTargetSet.has(streamName)) {
+        throw new Error(streamName + ": unsupported GraalVM target stream");
+      }
       const rangeNames = await readdir(streamDirectory);
       const anchors = rangeNames.filter(name => /^n0001=/.test(name));
       const file = join(repositoryDir, "versions");
@@ -180,7 +183,6 @@ export async function syncVersionHistories({ packageDirectory = "v1/pkg", fetchI
       const anchor = anchors[0].slice(6);
       let archivePattern = null;
       if (type === "graalvm") {
-        if (!graalvmTargetSet.has(streamName)) throw new Error(streamName + ": unsupported GraalVM target stream");
         if (owner !== graalvmOwner || repository !== graalvmRepository) {
           throw new Error(streamName + ": GraalVM history must use the official release source");
         }
