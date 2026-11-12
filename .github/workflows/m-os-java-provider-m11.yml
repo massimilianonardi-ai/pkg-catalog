@@ -52,6 +52,8 @@ jobs:
         shell: sh
         run: |
           set -eu
-          sh -n .github/scripts/m11-java-provider-precedence.sh
+          cp .github/scripts/m11-java-provider-precedence.sh m-source/.m11-java-provider-precedence.sh
           cd m-source
-          ./m sh ../.github/scripts/m11-java-provider-precedence.sh
+          trap 'rm -f -- .m11-java-provider-precedence.sh' 0 HUP INT TERM
+          sh -n .m11-java-provider-precedence.sh
+          ./m sh .m11-java-provider-precedence.sh
