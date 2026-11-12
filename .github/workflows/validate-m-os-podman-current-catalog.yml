@@ -1,0 +1,68 @@
+name: Exact m-os Podman adapter with current catalog
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/validate-m-os-podman-current-catalog.yml
+
+permissions:
+  contents: read
+
+jobs:
+  podman-macos-arm64:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact Podman adapter PR head
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 4ac43658096b5e484f218190186c477d63b30153
+          path: m-os
+          persist-credentials: false
+      - name: Checkout exact current package catalog main
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          path: catalog
+          persist-credentials: false
+      - name: Configure isolated runtime and verify exact source pins
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          test "$(uname -m)" = arm64
+          test "$(git rev-parse HEAD)" = 4ac43658096b5e484f218190186c477d63b30153
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          test "$(cat "$GITHUB_WORKSPACE/catalog/v1/pkg/podman/macos-arm64/repository/version")" = v6.1.2
+          ./m osarch update
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+      - name: Run fixture and public exact/latest package paths
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          sh -n lib/sys/sh/pkg/repository/pkg-repository-podman.lib.sh
+          sh -n .github/scripts/m-podman-adapter-fixture.sh
+          PODMAN_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" SHELL=/bin/sh ./m shell -c '. .github/scripts/m-podman-adapter-fixture.sh'
+          ./m pkg install podman
+          latest=$(./m pkg default podman)
+          case "$latest" in podman@v*!macos-arm64) :;; *) echo "invalid latest concrete: $latest" >&2; exit 1;; esac
+          latest_version=${latest#podman@v}
+          latest_version=${latest_version%%!macos-arm64}
+          latest_output=$(./m podman --version)
+          printf '%s\n' "$latest" "$latest_output"
+          case "$latest_output" in *"$latest_version"*) :;; *) echo 'latest Podman command version mismatch' >&2; exit 1;; esac
+          ./m pkg install podman@v6.1.2
+          ./m pkg default podman@v6.1.2
+          exact_output=$(./m podman --version)
+          printf '%s\n' "$exact_output"
+          case "$exact_output" in *6.1.2*) :;; *) echo 'exact Podman v6.1.2 command version mismatch' >&2; exit 1;; esac
+          versions=$(./m pkg versions podman)
+          printf '%s\n' "$versions"
+          printf '%s\n' "$versions" | grep -F 'podman@v6.1.2!macos-arm64' >/dev/null
+          printf '%s\n' "$versions" | grep -F "$latest" >/dev/null
+          echo 'PASS: exact current-catalog anchor and live Stable latest Podman artifacts installed and executed'
