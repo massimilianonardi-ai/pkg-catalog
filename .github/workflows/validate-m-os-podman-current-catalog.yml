@@ -26,6 +26,7 @@ jobs:
           repository: massimilianonardi-ai/pkg-catalog
           ref: 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
           path: catalog
+          fetch-depth: 0
           persist-credentials: false
       - name: Configure isolated runtime and verify exact source pins
         working-directory: m-os
@@ -35,7 +36,9 @@ jobs:
           test "$(uname -m)" = arm64
           test "$(git rev-parse HEAD)" = 4ac43658096b5e484f218190186c477d63b30153
           test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
           test "$(cat "$GITHUB_WORKSPACE/catalog/v1/pkg/podman/macos-arm64/repository/version")" = v6.1.2
+          git -C "$GITHUB_WORKSPACE/catalog" switch --create main --track origin/main
           ./m osarch update
           conf=$(./m state-path system sys pkg conf)
           mkdir -p -- "$conf"
