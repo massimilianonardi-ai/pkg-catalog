@@ -1,0 +1,74 @@
+name: Exact m-os GPGTools adapter with current catalog
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/validate-m-os-gpgtools-current-catalog.yml
+
+permissions:
+  contents: read
+
+jobs:
+  gpgtools-macos-arm64:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact GPGTools adapter PR head
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: cd54a908530e5b53179ed47e849f8a91d771a339
+          path: m-os
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact current package catalog main
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          path: catalog
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Configure isolated runtime and verify exact source pins
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          test "$(uname -m)" = arm64
+          test "$(git rev-parse HEAD)" = cd54a908530e5b53179ed47e849f8a91d771a339
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          test "$(cat "$GITHUB_WORKSPACE/catalog/v1/pkg/macgpg/macos-arm64/repository/version")" = 2026.1+3633n
+          git -C "$GITHUB_WORKSPACE/catalog" switch --create main --track origin/main
+          ./m osarch update
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+      - name: Run fixture and public latest/exact package paths
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          sh -n lib/sys/sh/pkg/repository/pkg-repository-gpgtools.lib.sh
+          sh -n tests/pkg-repository-gpgtools-fixture.sh
+          GPGTOOLS_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
+          GPGTOOLS_FIXTURE_TMP_BASE="$GITHUB_WORKSPACE/.gpgtools-fixture" \
+          SHELL=/bin/bash ./m shell -c '. ./tests/pkg-repository-gpgtools-fixture.sh'
+          ./m pkg depend 'macgpg!macos-arm64' >/dev/null
+          ./m pkg depend 'macgpg@2026.1+3633n!macos-arm64' >/dev/null
+          ./m pkg install 'macgpg@2026.1+3633n!macos-arm64'
+          ./m pkg default macgpg@2026.1+3633n!macos-arm64
+          selected=$(./m pkg default macgpg)
+          test "$selected" = macgpg@2026.1+3633n!macos-arm64
+          versions=$(./m pkg versions macgpg)
+          printf '%s\n' "$versions"
+          printf '%s\n' "$versions" | grep -F 'macgpg@2026.1+3633n!macos-arm64' >/dev/null
+          tmp=$(mktemp -d)
+          cleanup() { rm -rf -- "$tmp"; }
+          trap cleanup 0 HUP INT TERM
+          mkdir -p -- "$tmp/home" "$tmp/gnupg"
+          chmod 700 "$tmp/gnupg"
+          output=$(HOME="$tmp/home" GNUPGHOME="$tmp/gnupg" ./m gpg --version)
+          printf '%s\n' "$output"
+          printf '%s\n' "$output" | grep -Eq '^gpg \(GnuPG/[^)]+\) [0-9]' || { echo 'packaged gpg did not report a version line' >&2; exit 1; }
+          echo 'PASS: current-catalog exact GPGTools artifact installed, selected, listed and executed'
