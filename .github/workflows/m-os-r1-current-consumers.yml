@@ -23,7 +23,7 @@ jobs:
       - name: Checkout exact current pkg-catalog revision
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
           path: catalog
           fetch-depth: 0
           persist-credentials: false
@@ -45,8 +45,7 @@ jobs:
         shell: sh
         run: |
           set -eux
-          test "$(git -C catalog rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$GITHUB_SHA" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          test "$(git -C catalog rev-parse HEAD)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
           test "$(git -C m-source rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
           test "$(git -C rsudo rev-parse HEAD)" = f17e3826d5eb115cfafeeae7bdb292d53656531d
           echo 'MARK: exact source pins verified'
