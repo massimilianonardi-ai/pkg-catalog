@@ -144,9 +144,21 @@ m11_check_maven 21 "$java21_root"
 m11_check_maven 21 "$java21_root"
 "$m" pkg uninstall "$java25"
 if "$m" pkg provider default java "$java25" >/dev/null 2>&1; then
-  echo 'FAIL: removed Java 25 provider was selectable' >&2
+  :
+else
+  echo 'FAIL: provider default rejected an unavailable selector before resolution' >&2
   exit 19
 fi
+selected_default=$("$m" pkg provider default java 2>/dev/null) || exit 20
+[ "$selected_default" = "$java25" ] || {
+  echo 'FAIL: unavailable Java 25 provider intent was not retained' >&2
+  exit 20
+}
+if "$m" java -version >/dev/null 2>&1; then
+  echo 'FAIL: runtime resolved an unavailable authoritative Java default' >&2
+  exit 21
+fi
+"$m" pkg provider default java "$java21"
 [ "$("$m" pkg provider default java)" = "$java21" ] || exit 20
 m11_check_java 21 "$java21_root"
 m11_check_maven 21 "$java21_root"
