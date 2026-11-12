@@ -114,7 +114,18 @@ jobs:
                   raise SystemExit("INFRASTRUCTURE: provider workflow no longer invokes its checked-in public test script")
           elif not script_text.lstrip().startswith("set -eu"):
               raise SystemExit("INFRASTRUCTURE: inline S workflow shell block changed unexpectedly")
-          pathlib.Path(sys.argv[2]).write_text("".join(script), encoding="utf-8")
+          if workflow_name == "m-srv-safety-public.yml":
+              stop_case = '''./m srv stop "$service" >/tmp/m-srv-live-invalid-stop.log 2>&1 || status=$?
+          sleep 1
+          [ "$status" -eq 1 ] && kill -0 "$live_pid" && [ -d "$runtime_dir" ] || {'''
+              start_case = '''./m srv start "$service" >/tmp/m-srv-live-invalid-start.log 2>&1 || status=$?
+          sleep 1
+          [ "$status" -eq 1 ] && kill -0 "$live_pid" && [ -d "$runtime_dir" ] || {'''
+              if script_text.count(stop_case) != 1 or script_text.count(start_case) != 1:
+                  raise SystemExit("INFRASTRUCTURE: expected exact legacy live-PID status assertions")
+              script_text = script_text.replace(stop_case, stop_case.replace('[ "$status" -eq 1 ]', '[ "$status" -eq 9 ]'), 1)
+              script_text = script_text.replace(start_case, start_case.replace('[ "$status" -eq 1 ]', '[ "$status" -eq 7 ]'), 1)
+          pathlib.Path(sys.argv[2]).write_text(script_text, encoding="utf-8")
           PY
           /bin/sh -n "$RUNNER_TEMP/m-os-srv-script.sh"
           if [ "${{ matrix.workflow }}" = m-srv-safety-public.yml ]; then
