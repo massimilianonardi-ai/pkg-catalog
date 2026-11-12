@@ -1,0 +1,57 @@
+name: M11 real Java provider binding and default precedence
+
+on:
+  push:
+    branches: [codex/m-os-java-typed-context-ci]
+    paths:
+      - .github/workflows/m-os-java-provider-m11.yml
+      - .github/scripts/m11-java-provider-precedence.sh
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  java-provider-precedence:
+    name: M11 Java provider and Maven (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 70
+    steps:
+      - name: Checkout exact current pkg-catalog revision
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          path: catalog
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact current m-os master
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: a78a24bd37446ac9b7d510af5facc5c110de595d
+          path: m-source
+          persist-credentials: false
+      - name: Configure isolated current catalog snapshot
+        shell: sh
+        run: |
+          set -eu
+          test "$(git -C catalog rev-parse HEAD)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          test "$(git -C m-source rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d
+          git -C catalog switch -c m11-catalog-snapshot
+          (cd m-source && ./m osarch update)
+          conf=$(m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+          printf '%s\n' 'PASS: exact current product and catalog pins configured'
+      - name: Run real public Java, Maven, context and provider assertions
+        shell: sh
+        run: |
+          set -eu
+          sh -n .github/scripts/m11-java-provider-precedence.sh
+          cd m-source
+          ./m sh "$GITHUB_WORKSPACE/.github/scripts/m11-java-provider-precedence.sh"
