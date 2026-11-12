@@ -83,6 +83,10 @@ jobs:
           mkdir -p -- "$conf"
           printf '%s\n' "$catalog" > "$conf/catalog"
           test "$(cat "$conf/catalog")" = "$catalog"
+      - name: Build the distribution-required service supervisor
+        shell: sh
+        working-directory: m-os
+        run: ./tools/build-srv-supervisor.sh
       - name: Run the original S workflow's public-command script
         shell: bash
         working-directory: m-os
