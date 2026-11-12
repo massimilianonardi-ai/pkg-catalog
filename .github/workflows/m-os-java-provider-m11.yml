@@ -21,6 +21,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 70
     steps:
+      - name: Checkout exact M11 runner sources
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: ${{ github.sha }}
+          path: runner
+          persist-credentials: false
       - name: Checkout exact current pkg-catalog revision
         uses: actions/checkout@v4
         with:
@@ -52,7 +59,8 @@ jobs:
         shell: sh
         run: |
           set -eu
-          cp .github/scripts/m11-java-provider-precedence.sh m-source/.m11-java-provider-precedence.sh
+          sh -n runner/.github/scripts/m11-java-provider-precedence.sh
+          cp runner/.github/scripts/m11-java-provider-precedence.sh m-source/.m11-java-provider-precedence.sh
           cd m-source
           trap 'rm -f -- .m11-java-provider-precedence.sh' 0 HUP INT TERM
           sh -n .m11-java-provider-precedence.sh
