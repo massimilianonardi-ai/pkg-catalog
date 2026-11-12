@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 234e52ee3b438d2c165241a5315fb401638a4be1
+          ref: 2f0081df64162bb106b70ea430a985c24204e6ab
           path: m-os
           persist-credentials: false
       - name: Build supervisor and run public host-user profile lifecycle regressions
