@@ -1,0 +1,81 @@
+name: Validate current m-os C3 candidate
+
+on:
+  push:
+    branches: [codex/m-os-c3-current-ci]
+
+permissions:
+  contents: read
+
+jobs:
+  context-c3:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout isolated runner branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact C3 candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: c32c498f6ec48e9fa03f72b94c7d30b8d32e2fde
+          path: m-os-candidate
+          persist-credentials: false
+      - name: Checkout exact current package catalog
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          path: pkg-catalog
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Configure exact catalog and normalize tracked fixture permissions
+        shell: sh
+        run: |
+          set -eu
+          test "$(git -C m-os-candidate rev-parse HEAD)" = c32c498f6ec48e9fa03f72b94c7d30b8d32e2fde
+          test "$(git -C pkg-catalog rev-parse HEAD)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          cd m-os-candidate
+          chmod 755 state state/system state/system/profile state/system/profile/main
+          chmod 644 state/system/profile/.inventory
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p "$conf"
+          catalog=$(CDPATH= cd -- ../pkg-catalog && pwd -P)
+          printf '%s\n' "$catalog" > "$conf/catalog"
+          test "$(cat "$conf/catalog")" = "$catalog"
+          ./m osarch update
+      - name: Run original public C3 and focused regression suites
+        shell: sh
+        run: |
+          set -eu
+          cd m-os-candidate
+          for script in \
+            lib/sys/sh/context.lib.sh \
+            lib/sys/sh/context-store.lib.sh \
+            lib/sys/sh/context-profile-registry.lib.sh \
+            lib/sys/sh/pkg/pkg-launch.lib.sh \
+            .github/scripts/m-context-shell-public.sh \
+            .github/scripts/context-store-test.sh \
+            .github/scripts/context-profile-registry-test.sh \
+            .github/scripts/state-selector-security-test.sh \
+            .github/scripts/context-libraries-test.sh \
+            .github/scripts/context-profile-launch-state-test.sh
+          do
+            sh -n "$script"
+          done
+          .github/scripts/m-context-shell-public.sh
+          ./m sh .github/scripts/context-store-test.sh
+          ./m sh .github/scripts/context-profile-registry-test.sh
+          ./m sh .github/scripts/state-selector-security-test.sh
+          ./m sh .github/scripts/context-libraries-test.sh
+          ./m sh .github/scripts/context-profile-launch-state-test.sh
+          echo 'PASS: exact C3 candidate public and focused checks on pinned catalog'
