@@ -44,25 +44,45 @@ jobs:
           fetch-depth: 0
           path: m-os
           persist-credentials: false
-      - name: Checkout pinned S candidate without publishing it
+      - name: Checkout exact persistent-supervisor candidate without publishing it
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 093bed9bbf29c0828c806689db7bd3d9b00149ee
+          ref: ffd1ad3ac1e2762144aff0e74c60d23bb979f2cd
           fetch-depth: 0
-          path: m-os-s
+          path: m-os-srv-supervisor
+          persist-credentials: false
+      - name: Checkout exact current pkg-catalog main
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          fetch-depth: 1
+          path: pkg-catalog
           persist-credentials: false
       - name: Merge exact S and master revisions only in CI workspace
         shell: bash
         run: |
           set -euo pipefail
-          git -C m-os fetch ../m-os-s 093bed9bbf29c0828c806689db7bd3d9b00149ee
+          git -C m-os fetch ../m-os-srv-supervisor ffd1ad3ac1e2762144aff0e74c60d23bb979f2cd
           git -C m-os -c user.name=RumiAI-CI -c user.email=ci@example.invalid \
             merge --no-ff --no-edit FETCH_HEAD
           git -C m-os merge-base --is-ancestor a78a24bd37446ac9b7d510af5facc5c110de595d HEAD
-          git -C m-os merge-base --is-ancestor 093bed9bbf29c0828c806689db7bd3d9b00149ee HEAD
-          printf 'PASS: exact-source local master+S merge composition\n'
+          git -C m-os merge-base --is-ancestor ffd1ad3ac1e2762144aff0e74c60d23bb979f2cd HEAD
+          test "$(git -C pkg-catalog rev-parse HEAD)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          printf 'PASS: exact-source local master+supervisor composition and catalog pin\n'
           git -C m-os log -1 --format='%H %P'
+      - name: Configure exact catalog for public m package operations
+        shell: bash
+        working-directory: m-os
+        run: |
+          set -euo pipefail
+          ./m osarch update
+          catalog=$(CDPATH= cd -- ../pkg-catalog && pwd -P)
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$catalog" > "$conf/catalog"
+          test "$(cat "$conf/catalog")" = "$catalog"
       - name: Run the original S workflow's public-command script
         shell: bash
         working-directory: m-os
