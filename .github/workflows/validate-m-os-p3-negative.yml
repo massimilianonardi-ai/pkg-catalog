@@ -34,6 +34,8 @@ jobs:
 
           git clone --quiet -- https://github.com/massimilianonardi-ai/pkg-catalog.git "$RUNNER_TEMP/p3-advanced-catalog"
           git -C "$RUNNER_TEMP/p3-advanced-catalog" checkout --quiet -b p3-advanced-catalog 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          git -C "$RUNNER_TEMP/p3-advanced-catalog" config branch.p3-advanced-catalog.remote .
+          git -C "$RUNNER_TEMP/p3-advanced-catalog" config branch.p3-advanced-catalog.merge refs/heads/p3-advanced-catalog
           ./m osarch update
           conf=$(./m state-path system sys pkg conf)
           command -p -- mkdir -p -- "$conf"

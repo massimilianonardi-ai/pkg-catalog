@@ -47,13 +47,24 @@ jobs:
           ref: a78a24bd37446ac9b7d510af5facc5c110de595d
           path: m-os
           persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 6e5f81a2f9f2a278a4e717300a866a8783d50a3f
+          path: m-os-test-harness
+          persist-credentials: false
       - name: Verify genuine multi-version provider selection and cleanup
         shell: sh
         working-directory: m-os
+        env:
+          M_P3_REPO_ROOT: ${{ github.workspace }}/m-os
+          M_P3_CATALOG_REF: 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          M_P3_CATALOG_BRANCH: p3-ci-main
         run: |
           set -eu
           [ "$(git rev-parse HEAD)" = a78a24bd37446ac9b7d510af5facc5c110de595d ]
-          /bin/sh .github/scripts/m-pkg-p3-provider-versions.sh
+          [ "$(git -C ../m-os-test-harness rev-parse HEAD)" = 6e5f81a2f9f2a278a4e717300a866a8783d50a3f ]
+          /bin/sh ../m-os-test-harness/.github/scripts/m-pkg-p3-provider-versions.sh
   authentic-ambiguity:
     runs-on: ubuntu-latest
     timeout-minutes: 45
