@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 43d12708b3700ef3157f276545f21f6e8b629b65
+          ref: 68d0784c1cb8e06d26e6981f4e16533563083c12
           path: m-os
           fetch-depth: 0
           persist-credentials: false
@@ -37,7 +37,7 @@ jobs:
         run: |
           set -eu
           test "$(uname -m)" = x86_64
-          test "$(git rev-parse HEAD)" = 43d12708b3700ef3157f276545f21f6e8b629b65
+          test "$(git rev-parse HEAD)" = 68d0784c1cb8e06d26e6981f4e16533563083c12
           test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
           test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
           test "$(cat "$GITHUB_WORKSPACE/catalog/v1/pkg/geoserver/all/n0001=3.0.1/archive_regex")" = '^geoserver-[A-Za-z0-9][A-Za-z0-9._+~-]*-bin\\.zip$'
