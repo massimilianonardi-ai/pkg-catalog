@@ -1,0 +1,102 @@
+name: Exact m-os GeoServer adapter with current catalog
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/validate-m-os-geoserver-current-catalog.yml
+
+permissions:
+  contents: read
+
+jobs:
+  geoserver-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact GeoServer adapter PR head
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 6595bb10722d596d656327c5ee3d72a13cb106c9
+          path: m-os
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact current package catalog main
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          path: catalog
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Configure isolated runtime and verify exact source pins
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          test "$(uname -m)" = aarch64
+          test "$(git rev-parse HEAD)" = 6595bb10722d596d656327c5ee3d72a13cb106c9
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          test "$(cat "$GITHUB_WORKSPACE/catalog/v1/pkg/geoserver/all/n0001=3.0.1/archive_regex")" = '^geoserver-[A-Za-z0-9][A-Za-z0-9._+~-]*-bin\\.zip$'
+          git -C "$GITHUB_WORKSPACE/catalog" switch --create main --track origin/main
+          ./m osarch update
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+      - name: Run deterministic diagnostics fixture and public exact/latest planning
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          sh -n lib/sys/sh/pkg/repository/pkg-repository-geoserver.lib.sh
+          sh -n .github/scripts/m-geoserver-request-diagnostics-fixture.sh
+          .github/scripts/m-geoserver-request-diagnostics-fixture.sh
+          exact=$(./m pkg depend geoserver@3.0.1)
+          latest=$(./m pkg depend geoserver)
+          printf '%s\n' "$exact" "$latest"
+          case "$exact" in *'temurin@21+35!'*) :;; *) echo 'exact GeoServer dependency did not select Temurin 21' >&2; exit 1;; esac
+          case "$latest" in *'temurin@21+35!'*) :;; *) echo 'latest GeoServer dependency did not select Temurin 21' >&2; exit 1;; esac
+      - name: Install exact/latest releases and exercise WFS service
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          osarch=$(./m osarch)
+          ./m pkg install "geoserver!$osarch"
+          latest=$(./m pkg default geoserver)
+          case "$latest" in geoserver@*) :;; *) echo "latest install selected unexpected package identity: $latest" >&2; exit 1;; esac
+          latest_version=${latest#geoserver@}
+          latest_version=${latest_version%%!*}
+          if [ "$latest" != geoserver@3.0.1 ] && [ "$latest" != "geoserver@3.0.1!$osarch" ]; then
+            ./m pkg install geoserver@3.0.1
+          fi
+          versions=$(./m pkg versions geoserver)
+          printf '%s\n' "$versions"
+          case "$versions" in *'geoserver@3.0.1'*) :;; *) echo 'exact GeoServer 3.0.1 install missing' >&2; exit 1;; esac
+          case "$versions" in *"$latest"*) :;; *) echo "latest GeoServer install missing: $latest" >&2; exit 1;; esac
+          ./m pkg provider default java temurin@21+35
+          ./m pkg provider default geoserver "$latest"
+          selected=$(./m pkg provider default geoserver)
+          test "$selected" = "$latest"
+          work=
+          cleanup() {
+            ./m srv stop geoserver >/dev/null 2>&1 || :
+            if [ -n "$work" ]; then rm -rf -- "$work"; fi
+          }
+          trap cleanup 0 HUP INT TERM
+          ./m srv start geoserver
+          work=$(mktemp -d)
+          i=0
+          while ! curl -fsS 'http://127.0.0.1:8080/geoserver/ows?service=WFS&version=2.0.0&request=GetCapabilities' -o "$work/wfs.xml"
+          do
+            [ "$i" -lt 30 ] || { cat "$work/wfs.xml" 2>/dev/null || :; exit 1; }
+            i=$((i + 1))
+            sleep 2
+          done
+          grep -E '<(wfs:)?WFS_Capabilities([[:space:]>])' "$work/wfs.xml" >/dev/null
+          ./m srv stop geoserver
+          trap - 0 HUP INT TERM
+          rm -rf -- "$work"
+          work=
+          echo "PASS: exact 3.0.1 and latest $latest_version installs, provider selection, WFS service request and clean stop"
