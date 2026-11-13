@@ -18,7 +18,7 @@ jobs:
             runs-on: ubuntu-24.04
             expected-arch: x86_64
           - target: macos-arm64
-            runs-on: macos-14
+            runs-on: macos-15
             expected-arch: arm64
           - target: windows-x86_64
             runs-on: windows-2025
@@ -73,6 +73,13 @@ jobs:
           git -C "$GITHUB_WORKSPACE/catalog" switch --create main
           git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/main main
           ./m osarch update
+          for selector in bin/sys-osarch bin/ext-osarch bin/ai-osarch state/system/current/sys/environment/cache/env-osarch; do
+            if [ -L "$selector" ]; then
+              printf '%s -> %s\n' "$selector" "$(readlink "$selector")"
+            else
+              printf '%s is not a symbolic link\n' "$selector" >&2
+            fi
+          done
           actual_target=$(./m osarch)
           test "$actual_target" = "$EXPECTED_TARGET"
           conf=$(./m state-path system sys pkg conf)
