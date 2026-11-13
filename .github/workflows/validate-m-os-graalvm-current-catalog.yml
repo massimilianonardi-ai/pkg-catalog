@@ -25,6 +25,9 @@ jobs:
             expected-arch: x86_64
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 55
+    env:
+      EXPECTED_TARGET: ${{ matrix.target }}
+      EXPECTED_ARCH: ${{ matrix.expected-arch }}
     steps:
       - name: Checkout exact stacked GraalVM adapter and ordering head
         uses: actions/checkout@v4
@@ -45,9 +48,6 @@ jobs:
       - name: Verify exact pins, stream data, and establish catalog tracking branch
         working-directory: m-os
         shell: bash
-        env:
-          EXPECTED_TARGET: ${{ matrix.target }}
-          EXPECTED_ARCH: ${{ matrix.expected-arch }}
         run: |
           set -eu
           actual_arch=$(uname -m)
@@ -58,6 +58,9 @@ jobs:
           test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
           test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
           git -C "$GITHUB_WORKSPACE/m-os" config core.autocrlf false
+          git -C "$GITHUB_WORKSPACE/m-os" config core.symlinks true
+          git -C "$GITHUB_WORKSPACE/m-os" checkout --force HEAD -- .
+          test -L "$GITHUB_WORKSPACE/m-os/bin/sys-osarch"
           git -C "$GITHUB_WORKSPACE/catalog" config core.autocrlf false
           git -C "$GITHUB_WORKSPACE/catalog" checkout --force HEAD -- .
           for target in linux-arm64 linux-x86_64 macos-arm64 windows-x86_64; do
