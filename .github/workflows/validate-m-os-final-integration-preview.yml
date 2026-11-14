@@ -93,10 +93,10 @@ jobs:
         run: |
           set -eu
           osarch=$(./m osarch)
-          ./m pkg depend "graalvm@25.3.4.1!$osarch" >/dev/null
-          ./m pkg depend "graalvm!$osarch" >/dev/null
-          ./m pkg install "graalvm@25.3.4.1!$osarch"
-          ./m pkg install "graalvm!$osarch"
+          ./m pkg depend graalvm@25.3.4.1
+          ./m pkg depend graalvm
+          ./m pkg install graalvm@25.3.4.1
+          ./m pkg install graalvm
           versions=$(./m pkg versions graalvm)
           printf '%s\n' "$versions"
           printf '%s\n' "$versions" | grep -F "graalvm@25.3.4.1!$osarch" >/dev/null
@@ -322,7 +322,7 @@ jobs:
           set -eu
           PODMAN_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
             ./m sh .github/scripts/m-podman-adapter-fixture.sh
-          ./m pkg depend 'podman@v6.1.2!macos-arm64' >/dev/null
+          ./m pkg depend 'podman@v6.1.2!macos-arm64'
           ./m pkg install podman
           latest=$(./m pkg default podman)
           case "$latest" in podman@v*!macos-arm64) :;; *) exit 1;; esac
