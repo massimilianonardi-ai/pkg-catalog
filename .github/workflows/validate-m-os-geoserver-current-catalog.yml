@@ -1,0 +1,193 @@
+name: Exact m-os GeoServer adapter and host-user lifecycle with current catalog
+
+on:
+  push:
+    branches: [codex/m12-geoserver-host-user-validation]
+    paths:
+      - .github/workflows/validate-m-os-geoserver-current-catalog.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  geoserver-linux-host-user:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout exact combined C3/SRV and GeoServer validation candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 68d0784c1cb8e06d26e6981f4e16533563083c12
+          path: m-os
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact current package catalog main
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          path: catalog
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Configure isolated runtime and verify exact source pins
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          test "$(uname -m)" = x86_64
+          test "$(git rev-parse HEAD)" = 68d0784c1cb8e06d26e6981f4e16533563083c12
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          test "$(cat "$GITHUB_WORKSPACE/catalog/v1/pkg/geoserver/all/n0001=3.0.1/archive_regex")" = '^geoserver-[A-Za-z0-9][A-Za-z0-9._+~-]*-bin\\.zip$'
+          git -C "$GITHUB_WORKSPACE/catalog" switch --create main --track origin/main
+          ./m osarch update
+          ./tools/build-srv-supervisor.sh
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+      - name: Run deterministic diagnostics fixture and public exact/latest planning
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          sh -n lib/sys/sh/pkg/repository/pkg-repository-geoserver.lib.sh
+          sh -n .github/scripts/m-geoserver-request-diagnostics-fixture.sh
+          .github/scripts/m-geoserver-request-diagnostics-fixture.sh
+          exact=$(./m pkg depend geoserver@3.0.1)
+          latest=$(./m pkg depend geoserver)
+          printf '%s\n' "$exact" "$latest"
+          case "$exact" in *'temurin@21+35!'*) :;; *) echo 'exact GeoServer dependency did not select Temurin 21' >&2; exit 1;; esac
+          case "$latest" in *'temurin@21+35!'*) :;; *) echo 'latest GeoServer dependency did not select Temurin 21' >&2; exit 1;; esac
+      - name: Install exact/latest releases and exercise WFS service
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          osarch=$(./m osarch)
+          ./m pkg install "geoserver!$osarch"
+          latest=$(./m pkg default geoserver)
+          case "$latest" in geoserver@*) :;; *) echo "latest install selected unexpected package identity: $latest" >&2; exit 1;; esac
+          latest_version=${latest#geoserver@}
+          latest_version=${latest_version%%!*}
+          if [ "$latest" != geoserver@3.0.1 ] && [ "$latest" != "geoserver@3.0.1!$osarch" ]; then
+            ./m pkg install geoserver@3.0.1
+          fi
+          versions=$(./m pkg versions geoserver)
+          printf '%s\n' "$versions"
+          case "$versions" in *'geoserver@3.0.1'*) :;; *) echo 'exact GeoServer 3.0.1 install missing' >&2; exit 1;; esac
+          case "$versions" in *"$latest"*) :;; *) echo "latest GeoServer install missing: $latest" >&2; exit 1;; esac
+          ./m pkg provider default java temurin@21+35
+          ./m pkg provider default geoserver "$latest"
+          selected=$(./m pkg provider default geoserver)
+          test "$selected" = "$latest"
+          work=
+          cleanup() {
+            ./m srv stop geoserver >/dev/null 2>&1 || :
+            if [ -n "$work" ]; then rm -rf -- "$work"; fi
+          }
+          trap cleanup 0 HUP INT TERM
+          ./m srv start geoserver
+          work=$(mktemp -d)
+          i=0
+          while ! curl -fsS 'http://127.0.0.1:8080/geoserver/ows?service=WFS&version=2.0.0&request=GetCapabilities' -o "$work/wfs.xml"
+          do
+            [ "$i" -lt 30 ] || { cat "$work/wfs.xml" 2>/dev/null || :; exit 1; }
+            i=$((i + 1))
+            sleep 2
+          done
+          grep -E '<(wfs:)?WFS_Capabilities([[:space:]>])' "$work/wfs.xml" >/dev/null
+          ./m srv stop geoserver
+          trap - 0 HUP INT TERM
+          rm -rf -- "$work"
+          work=
+          echo "PASS: exact 3.0.1 and latest $latest_version installs, provider selection, WFS service request and clean stop"
+
+      - name: Exercise GeoServer through the nonprivileged systemd user service
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          uid=$(id -u)
+          account=$(id -un)
+          [ "$uid" -ne 0 ] || { echo 'INFRASTRUCTURE: expected a non-root runner account' >&2; exit 3; }
+          runtime="/run/user/$uid"
+          manager() {
+            HOME="$HOME" \
+            XDG_CONFIG_HOME="$HOME/.config" \
+            XDG_RUNTIME_DIR="$runtime" \
+            DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime/bus" \
+              systemctl --user "$@"
+          }
+          if [ ! -d "$runtime" ] || ! manager show-environment >/dev/null 2>&1; then
+            echo 'INFRASTRUCTURE: no existing real systemd user manager/session' >&2
+            exit 3
+          fi
+          unit="$HOME/.config/systemd/user/m-srv-geoserver.service"
+          [ ! -e "$unit" ] && [ ! -L "$unit" ] || {
+            echo 'INFRASTRUCTURE: existing GeoServer user unit will not be modified' >&2; exit 3;
+          }
+          if manager cat m-srv-geoserver.service >/dev/null 2>&1; then
+            echo 'INFRASTRUCTURE: GeoServer user unit already exists' >&2; exit 3
+          fi
+          if curl -fsS 'http://127.0.0.1:8080/geoserver/ows?service=WFS&version=2.0.0&request=GetCapabilities' >/dev/null 2>&1; then
+            echo 'INFRASTRUCTURE: GeoServer test endpoint is already occupied' >&2; exit 3
+          fi
+          registration_owned=0
+          work=
+          cleanup() {
+            if [ "$registration_owned" -eq 1 ]; then
+              ./m srv host user stop geoserver >/dev/null 2>&1 || :
+              ./m srv host user uninstall geoserver >/dev/null 2>&1 || :
+            fi
+            if [ -n "$work" ]; then rm -rf -- "$work"; fi
+          }
+          trap cleanup 0 HUP INT TERM
+          echo "CHECKPOINT: register GeoServer for existing POSIX account $account ($uid)"
+          ./m sh -c '. "$m_LIB_DIR/sys/sh/core.lib.sh"; context system=main; ./m srv host user install geoserver'
+          registration_owned=1
+          [ -f "$unit" ] && [ ! -L "$unit" ]
+          profile="$unit.profile"
+          [ -f "$profile" ] && grep -Fx 'system=main' "$profile" >/dev/null
+          manager is-enabled --quiet m-srv-geoserver.service
+          if manager is-active --quiet m-srv-geoserver.service; then
+            echo 'FAIL: host-user install unexpectedly started GeoServer' >&2; exit 1
+          fi
+          work=$(mktemp -d)
+          probe() {
+            attempt=0
+            while [ "$attempt" -lt 60 ]; do
+              if manager is-active --quiet m-srv-geoserver.service &&
+                 curl -fsS 'http://127.0.0.1:8080/geoserver/ows?service=WFS&version=2.0.0&request=GetCapabilities' -o "$work/wfs.xml" &&
+                 grep -E '<(wfs:)?WFS_Capabilities([[:space:]>])' "$work/wfs.xml" >/dev/null; then
+                return 0
+              fi
+              sleep 2
+              attempt=$((attempt + 1))
+            done
+            manager status m-srv-geoserver.service --no-pager >&2 || :
+            cat "$work/wfs.xml" >&2 2>/dev/null || :
+            return 1
+          }
+          echo 'CHECKPOINT: start and query WFS through systemd --user'
+          ./m srv host user start geoserver
+          probe
+          pid=$(manager show -p MainPID --value m-srv-geoserver.service)
+          case "$pid" in ''|0|*[!0123456789]*) exit 1;; esac
+          [ "$(ps -o user= -p "$pid" | tr -d ' ')" = "$account" ]
+          echo 'CHECKPOINT: restart and query WFS again'
+          ./m srv host user restart geoserver
+          probe
+          ./m srv host user stop geoserver
+          if manager is-active --quiet m-srv-geoserver.service; then
+            echo 'FAIL: GeoServer remains active after host-user stop' >&2; exit 1
+          fi
+          ./m srv host user uninstall geoserver
+          registration_owned=0
+          [ ! -e "$unit" ] && [ ! -L "$unit" ]
+          [ ! -e "$profile" ] && [ ! -L "$profile" ]
+          trap - 0 HUP INT TERM
+          rm -rf -- "$work"
+          work=
+          echo 'PASS: exact GeoServer install/default, host-user start/restart, WFS 2.0 response, stop and registration cleanup under non-root systemd user manager'
