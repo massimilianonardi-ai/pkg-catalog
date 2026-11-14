@@ -51,9 +51,13 @@ jobs:
           set -eu
           test "$(uname -m)" = '${{ matrix.uname }}'
           test "$(git rev-parse HEAD)" = d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 0ad85c3a133534b8637611ddbea15ff5609a1bde
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
-          git -C "$GITHUB_WORKSPACE/catalog" switch --create codex/graalvm-version-index-current-main --track origin/codex/graalvm-version-index-current-main
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 012e08e0115f01517f7df75f418db469d856c210
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
+          git -C "$GITHUB_WORKSPACE/catalog" switch --create main
+          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/main main
+          chmod 755 state state/system state/system/profile state/system/profile/main
+          chmod 644 state/system/profile/.inventory
           ./m osarch update
           ./tools/build-srv-supervisor.sh
           conf=$(./m state-path system sys pkg conf)
@@ -130,9 +134,13 @@ jobs:
           set -eu
           test "$(uname -m)" = aarch64
           test "$(git rev-parse HEAD)" = d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 0ad85c3a133534b8637611ddbea15ff5609a1bde
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
-          git -C "$GITHUB_WORKSPACE/catalog" switch --create codex/graalvm-version-index-current-main --track origin/codex/graalvm-version-index-current-main
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 012e08e0115f01517f7df75f418db469d856c210
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
+          git -C "$GITHUB_WORKSPACE/catalog" switch --create main
+          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/main main
+          chmod 755 state state/system state/system/profile state/system/profile/main
+          chmod 644 state/system/profile/.inventory
           ./m osarch update
           ./tools/build-srv-supervisor.sh
           conf=$(./m state-path system sys pkg conf)
@@ -238,9 +246,13 @@ jobs:
           set -eu
           test "$(uname -m)" = arm64
           test "$(git rev-parse HEAD)" = d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 0ad85c3a133534b8637611ddbea15ff5609a1bde
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
-          git -C "$GITHUB_WORKSPACE/catalog" switch --create codex/graalvm-version-index-current-main --track origin/codex/graalvm-version-index-current-main
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 012e08e0115f01517f7df75f418db469d856c210
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
+          git -C "$GITHUB_WORKSPACE/catalog" switch --create main
+          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/main main
+          chmod 755 state state/system state/system/profile state/system/profile/main
+          chmod 644 state/system/profile/.inventory
           ./m osarch update
           conf=$(./m state-path system sys pkg conf)
           mkdir -p -- "$conf"
