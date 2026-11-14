@@ -69,6 +69,22 @@ jobs:
         run: |
           set -eu
           export TERM=xterm
+          retry_github_403_once() {
+            command_log="$GITHUB_WORKSPACE/graalvm-command.log"
+            if "$@" >"$command_log" 2>&1; then
+              cat "$command_log"
+              return 0
+            else
+              command_status=$?
+            fi
+            cat "$command_log"
+            if ! grep -F 'error: 403' "$command_log" >/dev/null; then
+              return "$command_status"
+            fi
+            echo 'Retrying once after the upstream GitHub API returned HTTP 403.'
+            sleep 5
+            "$@"
+          }
           sh -n lib/sys/sh/context.lib.sh
           sh -n lib/sys/sh/pkg/repository/pkg-repository-geoserver.lib.sh
           sh -n lib/sys/sh/pkg/repository/pkg-repository-graalvm.lib.sh
@@ -79,8 +95,8 @@ jobs:
             ./m sh .github/scripts/m-graalvm-diagnostics-test.sh
           osarch=$(./m osarch)
           ./m pkg depend graalvm@25.3.4.1
-          ./m pkg depend graalvm
-          ./m pkg install graalvm
+          retry_github_403_once ./m pkg depend graalvm
+          retry_github_403_once ./m pkg install graalvm
           latest=$(./m pkg default graalvm)
           ./m pkg install graalvm@25.3.4.1
           versions=$(./m pkg versions graalvm)
