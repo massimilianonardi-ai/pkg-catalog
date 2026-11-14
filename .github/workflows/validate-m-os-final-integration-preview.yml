@@ -1,0 +1,287 @@
+name: Integrated m-os candidate acceptance preview
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/validate-m-os-final-integration-preview.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integrated-fixtures-and-graalvm:
+    name: Integrated fixtures and GraalVM / ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            runner: ubuntu-24.04
+            uname: x86_64
+          - name: linux-arm64
+            runner: ubuntu-24.04-arm
+            uname: aarch64
+          - name: macos-arm64
+            runner: macos-15
+            uname: arm64
+    steps:
+      - name: Checkout exact integrated m-os candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
+          path: m-os
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact catalog history candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: codex/graalvm-version-index-current-main
+          path: catalog
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact source pins and configure isolated m
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          test "$(uname -m)" = '${{ matrix.uname }}'
+          test "$(git rev-parse HEAD)" = d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 012e08e0115f01517f7df75f418db469d856c210
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
+          git -C "$GITHUB_WORKSPACE/catalog" switch --create main
+          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/codex/graalvm-version-index-current-main main
+          chmod 755 state state/system state/system/profile state/system/profile/main
+          chmod 644 state/system/profile/.inventory
+          ./m osarch update
+          ./tools/build-srv-supervisor.sh
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+      - name: Run integrated context, selector, facility-map and adapter fixtures
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          export TERM=xterm
+          retry_github_403_once() {
+            command_log="$GITHUB_WORKSPACE/graalvm-command.log"
+            if "$@" >"$command_log" 2>&1; then
+              cat "$command_log"
+              return 0
+            else
+              command_status=$?
+            fi
+            cat "$command_log"
+            if ! grep -F 'error: 403' "$command_log" >/dev/null; then
+              return "$command_status"
+            fi
+            echo 'Retrying once after the upstream GitHub API returned HTTP 403.'
+            sleep 5
+            "$@"
+          }
+          sh -n lib/sys/sh/context.lib.sh
+          sh -n lib/sys/sh/pkg/repository/pkg-repository-geoserver.lib.sh
+          sh -n lib/sys/sh/pkg/repository/pkg-repository-graalvm.lib.sh
+          sh -n lib/sys/sh/pkg/repository/pkg-repository-gpgtools.lib.sh
+          sh -n lib/sys/sh/pkg/repository/pkg-repository-podman.lib.sh
+          sh .github/scripts/m-pkg-p4-facility-map-unit.sh
+          GRAALVM_DIAGNOSTIC_TMP_BASE="$GITHUB_WORKSPACE/.graalvm-diagnostic-test" \
+            ./m sh .github/scripts/m-graalvm-diagnostics-test.sh
+          osarch=$(./m osarch)
+          ./m pkg depend graalvm@25.3.4.1
+          retry_github_403_once ./m pkg depend graalvm
+          retry_github_403_once ./m pkg install graalvm
+          latest=$(./m pkg default graalvm)
+          ./m pkg install graalvm@25.3.4.1
+          versions=$(./m pkg versions graalvm)
+          printf '%s\n' "$versions"
+          printf '%s\n' "$versions" | grep -F "graalvm@25.3.4.1!$osarch" >/dev/null
+          ./m pkg provider default java "$latest"
+          output=$(./m java -version 2>&1)
+          printf '%s\n' "$output"
+          printf '%s\n' "$output" | grep -F 'GraalVM' >/dev/null
+          printf '%s\n' "$output" | grep -F '25.5.5.0.3' >/dev/null
+          echo 'PASS: integrated GraalVM history selection, exact/latest install and Java CLI'
+          .github/scripts/m-context-shell-public.sh
+          ./m sh .github/scripts/context-store-test.sh
+          ./m sh .github/scripts/context-profile-registry-test.sh
+          ./m sh .github/scripts/state-selector-security-test.sh
+          ./m sh .github/scripts/context-libraries-test.sh
+          ./m sh .github/scripts/context-profile-launch-state-test.sh
+          PODMAN_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
+            ./m sh .github/scripts/m-podman-adapter-fixture.sh
+          GPGTOOLS_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
+            ./m shell -c '. ./tests/pkg-repository-gpgtools-fixture.sh'
+  geoserver-host-user:
+    name: Integrated GeoServer and nonprivileged host-user lifecycle / Ubuntu ARM64
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 55
+    steps:
+      - name: Checkout exact integrated m-os candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
+          path: m-os
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact catalog history candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: codex/graalvm-version-index-current-main
+          path: catalog
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Configure and assert source pins
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          test "$(uname -m)" = aarch64
+          test "$(git rev-parse HEAD)" = d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 012e08e0115f01517f7df75f418db469d856c210
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
+          git -C "$GITHUB_WORKSPACE/catalog" switch --create main
+          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/codex/graalvm-version-index-current-main main
+          chmod 755 state state/system state/system/profile state/system/profile/main
+          chmod 644 state/system/profile/.inventory
+          ./m osarch update
+          ./tools/build-srv-supervisor.sh
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+      - name: Resolve, install and run GeoServer over WFS
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          ./m pkg depend geoserver@3.0.1 >/dev/null
+          ./m pkg depend geoserver >/dev/null
+          osarch=$(./m osarch)
+          ./m pkg install "geoserver!$osarch"
+          latest=$(./m pkg default geoserver)
+          case "$latest" in geoserver@*) :;; *) exit 1;; esac
+          ./m pkg install geoserver@3.0.1
+          ./m pkg provider default java temurin@21+35
+          ./m pkg provider default geoserver "$latest"
+          work=$(mktemp -d)
+          cleanup() { ./m srv stop geoserver >/dev/null 2>&1 || :; rm -rf -- "$work"; }
+          trap cleanup 0 HUP INT TERM
+          ./m srv start geoserver
+          i=0
+          while ! curl -fsS 'http://127.0.0.1:8080/geoserver/ows?service=WFS&version=2.0.0&request=GetCapabilities' -o "$work/wfs.xml"; do
+            [ "$i" -lt 30 ] || { cat "$work/wfs.xml" 2>/dev/null || :; exit 1; }
+            i=$((i + 1))
+            sleep 2
+          done
+          grep -E '<(wfs:)?WFS_Capabilities([[:space:]>])' "$work/wfs.xml" >/dev/null
+          ./m srv stop geoserver
+          echo 'PASS: integrated GeoServer exact/latest installs, provider selection, WFS 2.0 and portable stop'
+      - name: Exercise C3-bound GeoServer through the existing user service manager
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          uid=$(id -u)
+          account=$(id -un)
+          [ "$uid" -ne 0 ]
+          runtime="/run/user/$uid"
+          manager() {
+            HOME="$HOME" XDG_CONFIG_HOME="$HOME/.config" XDG_RUNTIME_DIR="$runtime" \
+              DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime/bus" systemctl --user "$@"
+          }
+          manager show-environment >/dev/null
+          unit="$HOME/.config/systemd/user/m-srv-geoserver.service"
+          [ ! -e "$unit" ] && [ ! -L "$unit" ]
+          registration_owned=0
+          cleanup() {
+            if [ "$registration_owned" -eq 1 ]; then
+              ./m srv host user stop geoserver >/dev/null 2>&1 || :
+              ./m srv host user uninstall geoserver >/dev/null 2>&1 || :
+            fi
+          }
+          trap cleanup 0 HUP INT TERM
+          ./m sh -c '. "$m_LIB_DIR/sys/sh/core.lib.sh"; context system=main; ./m srv host user install geoserver'
+          registration_owned=1
+          grep -Fx 'system=main' "$unit.profile" >/dev/null
+          manager is-enabled --quiet m-srv-geoserver.service
+          ./m srv host user start geoserver
+          curl --retry 30 --retry-delay 2 --retry-connrefused -fsS \
+            'http://127.0.0.1:8080/geoserver/ows?service=WFS&version=2.0.0&request=GetCapabilities' \
+            -o "$GITHUB_WORKSPACE/wfs-host-user.xml"
+          grep -E '<(wfs:)?WFS_Capabilities([[:space:]>])' "$GITHUB_WORKSPACE/wfs-host-user.xml" >/dev/null
+          pid=$(manager show -p MainPID --value m-srv-geoserver.service)
+          case "$pid" in ''|0|*[!0123456789]*) exit 1;; esac
+          [ "$(ps -o user= -p "$pid" | tr -d ' ')" = "$account" ]
+          ./m srv host user restart geoserver
+          ./m srv host user stop geoserver
+          manager is-active --quiet m-srv-geoserver.service && exit 1
+          ./m srv host user uninstall geoserver
+          registration_owned=0
+          [ ! -e "$unit" ] && [ ! -L "$unit" ]
+          [ ! -e "$unit.profile" ] && [ ! -L "$unit.profile" ]
+          echo 'PASS: integrated C3 profile pinning and nonprivileged systemd user start/restart/stop/uninstall'
+
+  macos-gpgtools:
+    name: Integrated current-catalog GPGTools / macOS ARM64
+    runs-on: macos-15
+    timeout-minutes: 55
+    steps:
+      - name: Checkout exact integrated m-os candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
+          path: m-os
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact catalog history candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: codex/graalvm-version-index-current-main
+          path: catalog
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Configure and assert source pins
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          test "$(uname -m)" = arm64
+          test "$(git rev-parse HEAD)" = d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 012e08e0115f01517f7df75f418db469d856c210
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
+          git -C "$GITHUB_WORKSPACE/catalog" switch --create main
+          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/codex/graalvm-version-index-current-main main
+          chmod 755 state state/system state/system/profile state/system/profile/main
+          chmod 644 state/system/profile/.inventory
+          ./m osarch update
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+      - name: Install and execute exact GPGTools
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          GPGTOOLS_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
+            ./m shell -c '. ./tests/pkg-repository-gpgtools-fixture.sh'
+          ./m pkg depend 'macgpg!macos-arm64' >/dev/null
+          ./m pkg install 'macgpg@2026.1+3633n!macos-arm64'
+          ./m pkg default macgpg@2026.1+3633n!macos-arm64
+          tmp=$(mktemp -d)
+          mkdir -p "$tmp/home" "$tmp/gnupg"
+          chmod 700 "$tmp/gnupg"
+          HOME="$tmp/home" GNUPGHOME="$tmp/gnupg" ./m gpg --version | grep -Eq '^gpg \(GnuPG/[^)]+\) [0-9]'
+          rm -rf -- "$tmp"
+          echo 'PASS: integrated current-catalog GPGTools concrete install and isolated GPG CLI'
