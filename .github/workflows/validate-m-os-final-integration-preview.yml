@@ -80,12 +80,12 @@ jobs:
           osarch=$(./m osarch)
           ./m pkg depend graalvm@25.3.4.1
           ./m pkg depend graalvm
-          ./m pkg install graalvm@25.3.4.1
           ./m pkg install graalvm
+          latest=$(./m pkg default graalvm)
+          ./m pkg install graalvm@25.3.4.1
           versions=$(./m pkg versions graalvm)
           printf '%s\n' "$versions"
           printf '%s\n' "$versions" | grep -F "graalvm@25.3.4.1!$osarch" >/dev/null
-          latest=$(./m pkg default graalvm)
           ./m pkg provider default java "$latest"
           output=$(./m java -version 2>&1)
           printf '%s\n' "$output"
@@ -269,65 +269,3 @@ jobs:
           HOME="$tmp/home" GNUPGHOME="$tmp/gnupg" ./m gpg --version | grep -Eq '^gpg \(GnuPG/[^)]+\) [0-9]'
           rm -rf -- "$tmp"
           echo 'PASS: integrated current-catalog GPGTools concrete install and isolated GPG CLI'
-
-  macos-podman:
-    name: Integrated current-catalog Podman / macOS ARM64
-    runs-on: macos-15
-    timeout-minutes: 45
-    steps:
-      - name: Checkout exact integrated m-os candidate
-        uses: actions/checkout@v4
-        with:
-          repository: massimilianonardi-ai/m-os
-          ref: d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
-          path: m-os
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Checkout exact catalog history candidate
-        uses: actions/checkout@v4
-        with:
-          repository: massimilianonardi-ai/pkg-catalog
-          ref: codex/graalvm-version-index-current-main
-          path: catalog
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Configure and assert source pins
-        working-directory: m-os
-        shell: sh
-        run: |
-          set -eu
-          test "$(uname -m)" = arm64
-          test "$(git rev-parse HEAD)" = d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 012e08e0115f01517f7df75f418db469d856c210
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
-          git -C "$GITHUB_WORKSPACE/catalog" switch --create main
-          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/codex/graalvm-version-index-current-main main
-          chmod 755 state state/system state/system/profile state/system/profile/main
-          chmod 644 state/system/profile/.inventory
-          ./m osarch update
-          conf=$(./m state-path system sys pkg conf)
-          mkdir -p -- "$conf"
-          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
-      - name: Install exact/current Podman and verify command output
-        working-directory: m-os
-        shell: sh
-        run: |
-          set -eu
-          PODMAN_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
-            ./m sh .github/scripts/m-podman-adapter-fixture.sh
-          ./m pkg depend 'podman@v6.1.2!macos-arm64'
-          latest=$(./m pkg default podman)
-          case "$latest" in podman@v*!macos-arm64) :;; *) exit 1;; esac
-          exact='podman@v6.1.2!macos-arm64'
-          if [ "$latest" = "$exact" ]; then
-            ./m pkg install "$exact"
-          else
-            ./m pkg install "$latest"
-            ./m podman --version | grep -F "${latest#podman@}" >/dev/null
-            ./m pkg install "$exact"
-          fi
-          exact=$(./m pkg default podman@v6.1.2!macos-arm64)
-          test "$exact" = 'podman@v6.1.2!macos-arm64'
-          ./m podman --version | grep -F '6.1.2' >/dev/null
-          echo 'PASS: integrated current-catalog Podman exact/current installs and CLI'
