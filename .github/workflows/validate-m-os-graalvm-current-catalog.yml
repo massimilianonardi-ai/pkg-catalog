@@ -1,0 +1,139 @@
+name: Exact m-os GraalVM adapter with current catalog candidate
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/validate-m-os-graalvm-current-catalog.yml
+
+permissions:
+  contents: read
+
+jobs:
+  graalvm-public-exact-stack:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x86_64
+            runs-on: ubuntu-24.04
+            expected-arch: x86_64
+          - target: macos-arm64
+            runs-on: macos-15
+            expected-arch: arm64
+          - target: windows-x86_64
+            runs-on: windows-2025
+            expected-arch: x86_64
+    runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 55
+    env:
+      EXPECTED_TARGET: ${{ matrix.target }}
+      EXPECTED_ARCH: ${{ matrix.expected-arch }}
+    steps:
+      - name: Checkout exact stacked GraalVM adapter and ordering head
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: d4b4e387c0748599b7389daa7cf75a18b64b42c3
+          path: m-os
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact current-base GraalVM catalog candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: 0ad85c3a133534b8637611ddbea15ff5609a1bde
+          path: catalog
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact pins, stream data, and establish catalog tracking branch
+        id: verify
+        working-directory: m-os
+        shell: bash
+        run: |
+          set -eu
+          actual_arch=$(uname -m)
+          test "$actual_arch" = "$EXPECTED_ARCH"
+          test "$(git rev-parse HEAD)" = d4b4e387c0748599b7389daa7cf75a18b64b42c3
+          git merge-base --is-ancestor 2b26a461dc673c9e4c1990b62aaa8a41ab47a03f HEAD
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 0ad85c3a133534b8637611ddbea15ff5609a1bde
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 1559223f4e3e6d1764ebbf0b7f136a2dfbefdf3b
+          git -C "$GITHUB_WORKSPACE/m-os" config core.autocrlf false
+          git -C "$GITHUB_WORKSPACE/m-os" config core.symlinks true
+          git -C "$GITHUB_WORKSPACE/m-os" checkout --force HEAD -- .
+          test -L "$GITHUB_WORKSPACE/m-os/bin/sys-osarch"
+          git -C "$GITHUB_WORKSPACE/catalog" config core.autocrlf false
+          git -C "$GITHUB_WORKSPACE/catalog" checkout --force HEAD -- .
+          for target in linux-arm64 linux-x86_64 macos-arm64 windows-x86_64; do
+            test -s "$GITHUB_WORKSPACE/catalog/v1/pkg/graalvm/$target/repository/versions"
+            test "$(tail -n 1 "$GITHUB_WORKSPACE/catalog/v1/pkg/graalvm/$target/repository/versions")" = 25.5.5.0.3
+          done
+          cmp "$GITHUB_WORKSPACE/catalog/v1/pkg/graalvm/linux-arm64/repository/versions" "$GITHUB_WORKSPACE/catalog/v1/pkg/graalvm/linux-x86_64/repository/versions"
+          cmp "$GITHUB_WORKSPACE/catalog/v1/pkg/graalvm/linux-arm64/repository/versions" "$GITHUB_WORKSPACE/catalog/v1/pkg/graalvm/macos-arm64/repository/versions"
+          cmp "$GITHUB_WORKSPACE/catalog/v1/pkg/graalvm/linux-arm64/repository/versions" "$GITHUB_WORKSPACE/catalog/v1/pkg/graalvm/windows-x86_64/repository/versions"
+          git -C "$GITHUB_WORKSPACE/catalog" switch --create main
+          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/main main
+          ./m osarch update
+          missing_selectors=
+          for selector in bin/sys-osarch bin/ext-osarch bin/ai-osarch state/system/current/sys/environment/cache/env-osarch; do
+            if [ ! -L "$selector" ]; then
+              missing_selectors="$missing_selectors $selector"
+            fi
+          done
+          if [ -n "$missing_selectors" ]; then
+            if [ "$EXPECTED_TARGET" = windows-x86_64 ]; then
+              echo "runtime_supported=false" >> "$GITHUB_OUTPUT"
+              echo "::warning::Windows hosted Git Bash did not materialize the POSIX selector links ($missing_selectors); exact-pin catalog checks passed, runtime adapter checks are skipped."
+              exit 0
+            fi
+            echo "POSIX selector links missing after osarch update:$missing_selectors" >&2
+            exit 1
+          fi
+          echo "runtime_supported=true" >> "$GITHUB_OUTPUT"
+          actual_target=$(./m osarch)
+          test "$actual_target" = "$EXPECTED_TARGET"
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+      - name: Run adapter diagnostics and offline history-order fixtures
+        if: steps.verify.outputs.runtime_supported == 'true'
+        working-directory: m-os
+        shell: bash
+        run: |
+          set -eu
+          sh -n lib/sys/sh/pkg/repository/pkg-repository-graalvm.lib.sh
+          sh -n .github/scripts/m-graalvm-diagnostics-test.sh
+          GRAALVM_DIAGNOSTIC_TMP_BASE="$GITHUB_WORKSPACE/.graalvm-diagnostic-test" \
+            SHELL=/bin/sh ./m shell -c '. .github/scripts/m-graalvm-diagnostics-test.sh'
+          sh -n .github/scripts/m-pkg-p4-facility-map-unit.sh
+          /bin/sh .github/scripts/m-pkg-p4-facility-map-unit.sh
+      - name: Resolve exact anchor and live stable latest
+        if: steps.verify.outputs.runtime_supported == 'true'
+        working-directory: m-os
+        shell: bash
+        run: |
+          set -eu
+          ./m pkg depend graalvm@25.3.4.1 >/dev/null
+          ./m pkg depend graalvm >/dev/null
+      - name: Install exact and latest, select Java and execute it
+        if: steps.verify.outputs.runtime_supported == 'true'
+        working-directory: m-os
+        shell: bash
+        run: |
+          set -eu
+          ./m pkg install graalvm
+          latest=$(./m pkg default graalvm)
+          case "$latest" in graalvm@*) :;; *) echo 'latest install did not select a GraalVM concrete' >&2; exit 1;; esac
+          ./m pkg install graalvm@25.3.4.1
+          osarch=$(./m osarch)
+          versions=$(./m pkg versions graalvm)
+          printf '%s\n' "$versions"
+          case "$versions" in *"graalvm@25.3.4.1!$osarch"*) :;; *) echo 'exact GraalVM anchor is missing' >&2; exit 1;; esac
+          case "$versions" in *"$latest"*) :;; *) echo 'live latest GraalVM concrete is missing' >&2; exit 1;; esac
+          ./m pkg provider default java "$latest"
+          java_output=$(./m java -version 2>&1)
+          printf '%s\n' "$java_output"
+          latest_version=${latest#graalvm@}
+          latest_version=${latest_version%%!*}
+          case "$java_output" in *"$latest_version"*) :;; *) echo 'selected GraalVM Java provider did not report its selected release' >&2; exit 1;; esac
+          echo "PASS: $EXPECTED_TARGET exact 25.3.4.1, live stable latest $latest_version, offline index ordering, and Java execution"
