@@ -55,7 +55,7 @@ jobs:
           test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
           test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
           git -C "$GITHUB_WORKSPACE/catalog" switch --create main
-          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/main main
+          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/codex/graalvm-version-index-current-main main
           chmod 755 state state/system state/system/profile state/system/profile/main
           chmod 644 state/system/profile/.inventory
           ./m osarch update
@@ -75,23 +75,8 @@ jobs:
           sh -n lib/sys/sh/pkg/repository/pkg-repository-gpgtools.lib.sh
           sh -n lib/sys/sh/pkg/repository/pkg-repository-podman.lib.sh
           sh .github/scripts/m-pkg-p4-facility-map-unit.sh
-          .github/scripts/m-context-shell-public.sh
-          ./m sh .github/scripts/context-store-test.sh
-          ./m sh .github/scripts/context-profile-registry-test.sh
-          ./m sh .github/scripts/state-selector-security-test.sh
-          ./m sh .github/scripts/context-libraries-test.sh
-          ./m sh .github/scripts/context-profile-launch-state-test.sh
           GRAALVM_DIAGNOSTIC_TMP_BASE="$GITHUB_WORKSPACE/.graalvm-diagnostic-test" \
             ./m sh .github/scripts/m-graalvm-diagnostics-test.sh
-          PODMAN_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
-            ./m sh .github/scripts/m-podman-adapter-fixture.sh
-          GPGTOOLS_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
-            ./m shell -c '. ./tests/pkg-repository-gpgtools-fixture.sh'
-      - name: Resolve and install exact/latest GraalVM, select Java and execute CLI
-        working-directory: m-os
-        shell: sh
-        run: |
-          set -eu
           osarch=$(./m osarch)
           ./m pkg depend graalvm@25.3.4.1
           ./m pkg depend graalvm
@@ -107,7 +92,16 @@ jobs:
           printf '%s\n' "$output" | grep -F 'GraalVM' >/dev/null
           printf '%s\n' "$output" | grep -F '25.5.5.0.3' >/dev/null
           echo 'PASS: integrated GraalVM history selection, exact/latest install and Java CLI'
-
+          .github/scripts/m-context-shell-public.sh
+          ./m sh .github/scripts/context-store-test.sh
+          ./m sh .github/scripts/context-profile-registry-test.sh
+          ./m sh .github/scripts/state-selector-security-test.sh
+          ./m sh .github/scripts/context-libraries-test.sh
+          ./m sh .github/scripts/context-profile-launch-state-test.sh
+          PODMAN_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
+            ./m sh .github/scripts/m-podman-adapter-fixture.sh
+          GPGTOOLS_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
+            ./m shell -c '. ./tests/pkg-repository-gpgtools-fixture.sh'
   geoserver-host-user:
     name: Integrated GeoServer and nonprivileged host-user lifecycle / Ubuntu ARM64
     runs-on: ubuntu-24.04-arm
@@ -140,7 +134,7 @@ jobs:
           test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
           test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
           git -C "$GITHUB_WORKSPACE/catalog" switch --create main
-          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/main main
+          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/codex/graalvm-version-index-current-main main
           chmod 755 state state/system state/system/profile state/system/profile/main
           chmod 644 state/system/profile/.inventory
           ./m osarch update
@@ -252,7 +246,7 @@ jobs:
           test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
           test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
           git -C "$GITHUB_WORKSPACE/catalog" switch --create main
-          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/main main
+          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/codex/graalvm-version-index-current-main main
           chmod 755 state state/system state/system/profile state/system/profile/main
           chmod 644 state/system/profile/.inventory
           ./m osarch update
@@ -308,7 +302,7 @@ jobs:
           test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
           test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
           git -C "$GITHUB_WORKSPACE/catalog" switch --create main
-          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/main main
+          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/codex/graalvm-version-index-current-main main
           chmod 755 state state/system state/system/profile state/system/profile/main
           chmod 644 state/system/profile/.inventory
           ./m osarch update
@@ -323,11 +317,17 @@ jobs:
           PODMAN_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
             ./m sh .github/scripts/m-podman-adapter-fixture.sh
           ./m pkg depend 'podman@v6.1.2!macos-arm64'
-          ./m pkg install podman
           latest=$(./m pkg default podman)
           case "$latest" in podman@v*!macos-arm64) :;; *) exit 1;; esac
-          ./m podman --version | grep -F "${latest#podman@}" >/dev/null
-          ./m pkg install 'podman@v6.1.2!macos-arm64'
-          ./m pkg default podman@v6.1.2!macos-arm64
+          exact='podman@v6.1.2!macos-arm64'
+          if [ "$latest" = "$exact" ]; then
+            ./m pkg install "$exact"
+          else
+            ./m pkg install "$latest"
+            ./m podman --version | grep -F "${latest#podman@}" >/dev/null
+            ./m pkg install "$exact"
+          fi
+          exact=$(./m pkg default podman@v6.1.2!macos-arm64)
+          test "$exact" = 'podman@v6.1.2!macos-arm64'
           ./m podman --version | grep -F '6.1.2' >/dev/null
           echo 'PASS: integrated current-catalog Podman exact/current installs and CLI'
