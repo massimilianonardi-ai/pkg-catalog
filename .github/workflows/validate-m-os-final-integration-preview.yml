@@ -68,21 +68,23 @@ jobs:
         shell: sh
         run: |
           set -eu
+          export TERM=xterm
           sh -n lib/sys/sh/context.lib.sh
           sh -n lib/sys/sh/pkg/repository/pkg-repository-geoserver.lib.sh
           sh -n lib/sys/sh/pkg/repository/pkg-repository-graalvm.lib.sh
           sh -n lib/sys/sh/pkg/repository/pkg-repository-gpgtools.lib.sh
           sh -n lib/sys/sh/pkg/repository/pkg-repository-podman.lib.sh
-          ./m shell -c '. .github/scripts/context-store-test.sh'
-          ./m shell -c '. .github/scripts/context-profile-registry-test.sh'
-          ./m shell -c '. .github/scripts/state-selector-security-test.sh'
-          ./m shell -c '. .github/scripts/context-profile-launch-state-test.sh'
-          ./m shell -c '. .github/scripts/context-libraries-test.sh'
           sh .github/scripts/m-pkg-p4-facility-map-unit.sh
+          .github/scripts/m-context-shell-public.sh
+          ./m sh .github/scripts/context-store-test.sh
+          ./m sh .github/scripts/context-profile-registry-test.sh
+          ./m sh .github/scripts/state-selector-security-test.sh
+          ./m sh .github/scripts/context-libraries-test.sh
+          ./m sh .github/scripts/context-profile-launch-state-test.sh
           GRAALVM_DIAGNOSTIC_TMP_BASE="$GITHUB_WORKSPACE/.graalvm-diagnostic-test" \
-            ./m shell -c '. .github/scripts/m-graalvm-diagnostics-test.sh'
+            ./m sh .github/scripts/m-graalvm-diagnostics-test.sh
           PODMAN_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
-            ./m shell -c '. .github/scripts/m-podman-adapter-fixture.sh'
+            ./m sh .github/scripts/m-podman-adapter-fixture.sh
           GPGTOOLS_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
             ./m shell -c '. ./tests/pkg-repository-gpgtools-fixture.sh'
       - name: Resolve and install exact/latest GraalVM, select Java and execute CLI
@@ -218,8 +220,8 @@ jobs:
           [ ! -e "$unit.profile" ] && [ ! -L "$unit.profile" ]
           echo 'PASS: integrated C3 profile pinning and nonprivileged systemd user start/restart/stop/uninstall'
 
-  macos-current-catalog-adapters:
-    name: Integrated current-catalog GPGTools and Podman / macOS ARM64
+  macos-gpgtools:
+    name: Integrated current-catalog GPGTools / macOS ARM64
     runs-on: macos-15
     timeout-minutes: 55
     steps:
@@ -257,23 +259,70 @@ jobs:
           conf=$(./m state-path system sys pkg conf)
           mkdir -p -- "$conf"
           printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
-      - name: Install and execute exact/current GPGTools and Podman
+      - name: Install and execute exact GPGTools
         working-directory: m-os
         shell: sh
         run: |
           set -eu
           GPGTOOLS_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
             ./m shell -c '. ./tests/pkg-repository-gpgtools-fixture.sh'
-          PODMAN_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
-            ./m shell -c '. .github/scripts/m-podman-adapter-fixture.sh'
           ./m pkg depend 'macgpg!macos-arm64' >/dev/null
-          ./m pkg depend 'podman@v6.1.2!macos-arm64' >/dev/null
           ./m pkg install 'macgpg@2026.1+3633n!macos-arm64'
           ./m pkg default macgpg@2026.1+3633n!macos-arm64
           tmp=$(mktemp -d)
           mkdir -p "$tmp/home" "$tmp/gnupg"
           chmod 700 "$tmp/gnupg"
           HOME="$tmp/home" GNUPGHOME="$tmp/gnupg" ./m gpg --version | grep -Eq '^gpg \(GnuPG/[^)]+\) [0-9]'
+          rm -rf -- "$tmp"
+          echo 'PASS: integrated current-catalog GPGTools concrete install and isolated GPG CLI'
+
+  macos-podman:
+    name: Integrated current-catalog Podman / macOS ARM64
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact integrated m-os candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
+          path: m-os
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact catalog history candidate
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/pkg-catalog
+          ref: codex/graalvm-version-index-current-main
+          path: catalog
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Configure and assert source pins
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          test "$(uname -m)" = arm64
+          test "$(git rev-parse HEAD)" = d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 012e08e0115f01517f7df75f418db469d856c210
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
+          git -C "$GITHUB_WORKSPACE/catalog" switch --create main
+          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/main main
+          chmod 755 state state/system state/system/profile state/system/profile/main
+          chmod 644 state/system/profile/.inventory
+          ./m osarch update
+          conf=$(./m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$GITHUB_WORKSPACE/catalog" > "$conf/catalog"
+      - name: Install exact/current Podman and verify command output
+        working-directory: m-os
+        shell: sh
+        run: |
+          set -eu
+          PODMAN_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
+            ./m sh .github/scripts/m-podman-adapter-fixture.sh
+          ./m pkg depend 'podman@v6.1.2!macos-arm64' >/dev/null
           ./m pkg install podman
           latest=$(./m pkg default podman)
           case "$latest" in podman@v*!macos-arm64) :;; *) exit 1;; esac
@@ -281,5 +330,4 @@ jobs:
           ./m pkg install 'podman@v6.1.2!macos-arm64'
           ./m pkg default podman@v6.1.2!macos-arm64
           ./m podman --version | grep -F '6.1.2' >/dev/null
-          rm -rf -- "$tmp"
-          echo 'PASS: integrated current-catalog GPGTools and Podman concrete installs and CLI'
+          echo 'PASS: integrated current-catalog Podman exact/current installs and CLI'
