@@ -51,9 +51,9 @@ jobs:
           set -eu
           test "$(uname -m)" = '${{ matrix.uname }}'
           test "$(git rev-parse HEAD)" = d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 012e08e0115f01517f7df75f418db469d856c210
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 90f08dc81cd59d0640e082cf219230ada48c7f56
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = de8c560533d7e8ddc369a490fbc44bfb49feef67
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = de8c560533d7e8ddc369a490fbc44bfb49feef67
           git -C "$GITHUB_WORKSPACE/catalog" switch --create main
           git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/codex/graalvm-version-index-current-main main
           chmod 755 state state/system state/system/profile state/system/profile/main
@@ -146,9 +146,9 @@ jobs:
           set -eu
           test "$(uname -m)" = aarch64
           test "$(git rev-parse HEAD)" = d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 012e08e0115f01517f7df75f418db469d856c210
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 90f08dc81cd59d0640e082cf219230ada48c7f56
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = de8c560533d7e8ddc369a490fbc44bfb49feef67
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = de8c560533d7e8ddc369a490fbc44bfb49feef67
           git -C "$GITHUB_WORKSPACE/catalog" switch --create main
           git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/codex/graalvm-version-index-current-main main
           chmod 755 state state/system state/system/profile state/system/profile/main
@@ -258,9 +258,9 @@ jobs:
           set -eu
           test "$(uname -m)" = arm64
           test "$(git rev-parse HEAD)" = d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 012e08e0115f01517f7df75f418db469d856c210
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 10b650c40b3f400af4e5fcecbd138546fbbd1732
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 90f08dc81cd59d0640e082cf219230ada48c7f56
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = de8c560533d7e8ddc369a490fbc44bfb49feef67
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = de8c560533d7e8ddc369a490fbc44bfb49feef67
           git -C "$GITHUB_WORKSPACE/catalog" switch --create main
           git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/codex/graalvm-version-index-current-main main
           chmod 755 state state/system state/system/profile state/system/profile/main
