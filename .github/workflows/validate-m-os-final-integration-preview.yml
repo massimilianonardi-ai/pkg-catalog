@@ -98,7 +98,7 @@ jobs:
           retry_github_403_once ./m pkg depend graalvm
           retry_github_403_once ./m pkg install graalvm
           latest=$(./m pkg default graalvm)
-          ./m pkg install graalvm@25.3.4.1
+          retry_github_403_once ./m pkg install graalvm@25.3.4.1
           versions=$(./m pkg versions graalvm)
           printf '%s\n' "$versions"
           printf '%s\n' "$versions" | grep -F "graalvm@25.3.4.1!$osarch" >/dev/null
