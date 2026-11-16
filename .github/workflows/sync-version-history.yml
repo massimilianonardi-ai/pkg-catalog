@@ -6,6 +6,14 @@ on:
       - main
     paths:
       - sync-version-history.mjs
+      - test/sync-version-history.test.mjs
+      - v1/pkg/graalvm/**/repository/versions
+      - .github/workflows/sync-version-history.yml
+  pull_request:
+    paths:
+      - sync-version-history.mjs
+      - test/sync-version-history.test.mjs
+      - v1/pkg/graalvm/**/repository/versions
       - .github/workflows/sync-version-history.yml
   schedule:
     - cron: "17 2 * * *"
@@ -28,6 +36,8 @@ jobs:
           node-version: "22"
       - name: Validate reconciler syntax
         run: node --check sync-version-history.mjs
+      - name: Test release normalization and catalog stream fixtures
+        run: node --test test/sync-version-history.test.mjs
       - name: Reconcile catalog with upstream releases
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -37,8 +47,19 @@ jobs:
           else
             node sync-version-history.mjs
           fi
-      - name: Publish changes
+      - name: Verify non-main runs cannot publish
+        if: github.ref != 'refs/heads/main'
         run: |
+          test "$GITHUB_REF" != "refs/heads/main"
+          echo 'PASS: non-main history validation will not publish to main'
+      - name: Publish changes
+        if: github.ref == 'refs/heads/main'
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$(git symbolic-ref --short HEAD)" = "main"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          remote_main=$(git ls-remote origin refs/heads/main | awk 'NR == 1 { print $1 }')
+          test "$remote_main" = "$GITHUB_SHA"
           git add -- v1/pkg
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
