@@ -32,7 +32,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
+          ref: 9071097f5612b5b8ae68286870b173db0c54b81b
           path: m-os
           fetch-depth: 0
           persist-credentials: false
@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/pkg-catalog
-          ref: codex/graalvm-version-index-current-main
+          ref: codex/pkg-catalog-unified-acceptance-candidate
           path: catalog
           fetch-depth: 0
           persist-credentials: false
@@ -50,12 +50,12 @@ jobs:
         run: |
           set -eu
           test "$(uname -m)" = '${{ matrix.uname }}'
-          test "$(git rev-parse HEAD)" = d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 90f08dc81cd59d0640e082cf219230ada48c7f56
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = de8c560533d7e8ddc369a490fbc44bfb49feef67
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = de8c560533d7e8ddc369a490fbc44bfb49feef67
+          test "$(git rev-parse HEAD)" = 9071097f5612b5b8ae68286870b173db0c54b81b
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 4db910899bc951e91826a4871038611255acceed
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 9bfddf3be35351d1639e375ab4ac12978af7cf85
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 9bfddf3be35351d1639e375ab4ac12978af7cf85
           git -C "$GITHUB_WORKSPACE/catalog" switch --create main
-          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/codex/graalvm-version-index-current-main main
+          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/codex/pkg-catalog-unified-acceptance-candidate main
           chmod 755 state state/system state/system/profile state/system/profile/main
           chmod 644 state/system/profile/.inventory
           ./m osarch update
@@ -114,6 +114,22 @@ jobs:
           ./m sh .github/scripts/state-selector-security-test.sh
           ./m sh .github/scripts/context-libraries-test.sh
           ./m sh .github/scripts/context-profile-launch-state-test.sh
+          # Isolated, unprivileged selected-profile CA mutation (never host trust).
+          if [ "$(uname -s)" = Linux ]; then
+            ca_work=$(mktemp -d "$GITHUB_WORKSPACE/.candidate-ca.XXXXXX")
+            trap 'rm -rf -- "$ca_work"' 0
+            openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+              -subj '/CN=RumiAI Candidate Test CA' \
+              -addext 'basicConstraints=critical,CA:TRUE' \
+              -addext 'keyUsage=critical,keyCertSign,cRLSign' \
+              -keyout "$ca_work/key.pem" -out "$ca_work/ca.pem" >/dev/null 2>&1
+            export CANDIDATE_CA_FILE="$ca_work/ca.pem"
+            ca_id=$(./m sh -c '. "$m_LIB_DIR/sys/sh/core.lib.sh"; context system=main; ./m tls-ca add "$CANDIDATE_CA_FILE"')
+            ./m sh -c '. "$m_LIB_DIR/sys/sh/core.lib.sh"; context system=main; ./m tls-ca list' | grep -Fx "$ca_id"
+            export CANDIDATE_CA_ID="$ca_id"
+            ./m sh -c '. "$m_LIB_DIR/sys/sh/core.lib.sh"; context system=main; ./m tls-ca remove "$CANDIDATE_CA_ID"'
+            echo 'PASS: managed-profile CA add/list/remove without host trust changes'
+          fi
           PODMAN_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
             ./m sh .github/scripts/m-podman-adapter-fixture.sh
           GPGTOOLS_FIXTURE_CATALOG="$GITHUB_WORKSPACE/catalog" \
@@ -127,7 +143,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
+          ref: 9071097f5612b5b8ae68286870b173db0c54b81b
           path: m-os
           fetch-depth: 0
           persist-credentials: false
@@ -135,7 +151,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/pkg-catalog
-          ref: codex/graalvm-version-index-current-main
+          ref: codex/pkg-catalog-unified-acceptance-candidate
           path: catalog
           fetch-depth: 0
           persist-credentials: false
@@ -145,12 +161,12 @@ jobs:
         run: |
           set -eu
           test "$(uname -m)" = aarch64
-          test "$(git rev-parse HEAD)" = d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 90f08dc81cd59d0640e082cf219230ada48c7f56
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = de8c560533d7e8ddc369a490fbc44bfb49feef67
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = de8c560533d7e8ddc369a490fbc44bfb49feef67
+          test "$(git rev-parse HEAD)" = 9071097f5612b5b8ae68286870b173db0c54b81b
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 4db910899bc951e91826a4871038611255acceed
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 9bfddf3be35351d1639e375ab4ac12978af7cf85
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 9bfddf3be35351d1639e375ab4ac12978af7cf85
           git -C "$GITHUB_WORKSPACE/catalog" switch --create main
-          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/codex/graalvm-version-index-current-main main
+          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/codex/pkg-catalog-unified-acceptance-candidate main
           chmod 755 state state/system state/system/profile state/system/profile/main
           chmod 644 state/system/profile/.inventory
           ./m osarch update
@@ -239,7 +255,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
+          ref: 9071097f5612b5b8ae68286870b173db0c54b81b
           path: m-os
           fetch-depth: 0
           persist-credentials: false
@@ -247,7 +263,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/pkg-catalog
-          ref: codex/graalvm-version-index-current-main
+          ref: codex/pkg-catalog-unified-acceptance-candidate
           path: catalog
           fetch-depth: 0
           persist-credentials: false
@@ -257,12 +273,12 @@ jobs:
         run: |
           set -eu
           test "$(uname -m)" = arm64
-          test "$(git rev-parse HEAD)" = d04e6d55a40382cf23474f673ed5a5e28d3dd2c7
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 90f08dc81cd59d0640e082cf219230ada48c7f56
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = de8c560533d7e8ddc369a490fbc44bfb49feef67
-          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = de8c560533d7e8ddc369a490fbc44bfb49feef67
+          test "$(git rev-parse HEAD)" = 9071097f5612b5b8ae68286870b173db0c54b81b
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse HEAD)" = 4db910899bc951e91826a4871038611255acceed
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" rev-parse origin/main)" = 9bfddf3be35351d1639e375ab4ac12978af7cf85
+          test "$(git -C "$GITHUB_WORKSPACE/catalog" merge-base HEAD origin/main)" = 9bfddf3be35351d1639e375ab4ac12978af7cf85
           git -C "$GITHUB_WORKSPACE/catalog" switch --create main
-          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/codex/graalvm-version-index-current-main main
+          git -C "$GITHUB_WORKSPACE/catalog" branch --set-upstream-to=origin/codex/pkg-catalog-unified-acceptance-candidate main
           chmod 755 state state/system state/system/profile state/system/profile/main
           chmod 644 state/system/profile/.inventory
           ./m osarch update
