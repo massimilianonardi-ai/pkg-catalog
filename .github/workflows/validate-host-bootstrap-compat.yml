@@ -1,0 +1,63 @@
+name: Probe macOS and Windows bootstrap portability
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/validate-host-bootstrap-compat.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 71309c8f575025ef6b5d44596fff94e4731e44a5
+          path: m-source
+          persist-credentials: false
+      - name: Confirm macOS uses portable chmod and resolves the real runtime
+        shell: bash
+        run: |
+          set -eu
+          test "$(git -C m-source rev-parse HEAD)" = 71309c8f575025ef6b5d44596fff94e4731e44a5
+          grep -F 'chmod 777 "$pkg_install_tmp_root"' m-source/lib/sys/sh/pkg/pkg-install.lib.sh
+          grep -F 'chmod 777 "$pkg_install_cache_root"' m-source/lib/sys/sh/pkg/pkg-install.lib.sh
+          ./m-source/m osarch update
+          ./m-source/m sh -c 'printf "BOOTSTRAP_OK osarch=%s\n" "$m_OSARCH"'
+
+  windows:
+    needs: macos
+    if: ${{ always() }}
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 71309c8f575025ef6b5d44596fff94e4731e44a5
+          path: m-source
+          persist-credentials: false
+      - name: Diagnose exact inventory checkout and Windows bootstrap
+        shell: bash
+        run: |
+          set -u
+          echo '== Host and Git checkout =='
+          uname -a
+          id -u
+          git -C m-source config --get core.autocrlf || :
+          git -C m-source config --get core.symlinks || :
+          for p in m-source m-source/state m-source/state/system m-source/state/system/profile m-source/state/system/profile/main m-source/state/system/profile/.inventory
+          do
+            ls -ldn "$p" || :
+          done
+          echo '== Inventory Git bytes =='
+          git -C m-source show HEAD:state/system/profile/.inventory | od -An -tx1
+          echo '== Inventory working tree bytes =='
+          od -An -tx1 m-source/state/system/profile/.inventory || :
+          echo '== Current Windows bootstrap =='
+          ./m-source/m osarch update
+          exit $?
