@@ -49,6 +49,9 @@ jobs:
           test "$(git -C catalog rev-parse HEAD)" = "${{ inputs.catalog_sha }}"
           test "$(git -C m-source rev-parse HEAD)" = b9d4a7a89c57b55e699e41d273b91398b2b39635
           test "$(git -C tests rev-parse HEAD)" = 63e01338667f76c519686128f6608d8f7c52dd67
+          # pkg_catalog_init clones this local snapshot: give detached checkout
+          # a real branch HEAD without changing the pinned commit.
+          git -C catalog switch -c ci-entire-v2-catalog
           ./m-source/m osarch update
           conf=$(./m-source/m state-path system sys pkg conf)
           mkdir -p -- "$conf"
