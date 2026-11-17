@@ -1,0 +1,3 @@
+CHROME_DEVEL_SANDBOX="$pkg_launch_root/chrome_sandbox"
+[ -f "$CHROME_DEVEL_SANDBOX" ] && [ ! -L "$CHROME_DEVEL_SANDBOX" ] && [ -x "$CHROME_DEVEL_SANDBOX" ] || return 1
+export CHROME_DEVEL_SANDBOX

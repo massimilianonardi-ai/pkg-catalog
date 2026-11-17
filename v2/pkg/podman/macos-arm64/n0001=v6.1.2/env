@@ -1,0 +1,6 @@
+podman_bin_dir="$pkg_launch_root/bin"
+[ -d "$podman_bin_dir" ] && [ ! -L "$podman_bin_dir" ] || return 1
+CONTAINERS_HELPER_BINARY_DIR="$podman_bin_dir"
+PATH="$podman_bin_dir:$PATH"
+export CONTAINERS_HELPER_BINARY_DIR PATH
+unset podman_bin_dir
