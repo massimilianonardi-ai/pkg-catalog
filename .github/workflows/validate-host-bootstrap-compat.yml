@@ -85,6 +85,15 @@ jobs:
             echo 'unexpected installation success' >&2
             exit 1
           fi
-          ! grep -F 'pkg-install.initialization-failed' install.err
+          if grep -F 'pkg-install.initialization-failed' install.err
+          then
+            echo 'FAIL: Windows public pkg install stopped during initialization' >&2
+            cat install.err >&2
+            # Diagnose only the failed real public entrypoint. No upstream package
+            # exists for this request, so the trace cannot enter a release API.
+            sh -x ./m-source/m pkg install ci-nonexistent-package@1.0.0 > install-trace.out 2> install-trace.err || :
+            tail -n 180 install-trace.err >&2
+            exit 1
+          fi
           grep -F 'pkg-install.root-resolution-failed' install.err
           echo 'PASS: Windows public pkg install reached catalog resolution'
