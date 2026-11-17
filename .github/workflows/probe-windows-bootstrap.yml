@@ -1,0 +1,42 @@
+name: Diagnose native Git Bash Windows profile inventory
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/probe-windows-bootstrap.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-inventory:
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: b9d4a7a89c57b55e699e41d273b91398b2b39635
+          path: m-source
+          persist-credentials: false
+      - name: Verify checked-out system profile inventory and host metadata
+        shell: bash
+        run: |
+          set -u
+          printf 'HOST=%s USER_UID=%s\n' "$(uname -s)" "$(id -u)"
+          git -C m-source config --get core.autocrlf || :
+          git -C m-source config --get core.symlinks || :
+          for p in m-source m-source/state m-source/state/system m-source/state/system/profile m-source/state/system/profile/main m-source/state/system/profile/.inventory
+          do
+            ls -ldn "$p" || :
+          done
+          printf 'repository inventory bytes:\n'
+          git -C m-source show HEAD:state/system/profile/.inventory | od -An -tx1
+          printf 'working tree inventory bytes:\n'
+          od -An -tx1 m-source/state/system/profile/.inventory || :
+          printf 'git comparison:\n'
+          git -C m-source status --porcelain=v1 || :
+          printf 'attempt regular Windows bootstrap:\n'
+          ./m-source/m osarch update
