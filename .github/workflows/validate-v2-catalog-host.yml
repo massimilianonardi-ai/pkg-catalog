@@ -1,0 +1,71 @@
+name: Run entire v2 catalog on one pinned host
+
+on:
+  workflow_call:
+    inputs:
+      runner_label:
+        required: true
+        type: string
+      expected_osarch:
+        required: true
+        type: string
+      catalog_sha:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: ${{ inputs.expected_osarch }} catalog lifecycle
+    runs-on: ${{ inputs.runner_label }}
+    timeout-minutes: 360
+    steps:
+      - name: Checkout exact catalog snapshot
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.catalog_sha }}
+          path: catalog
+          persist-credentials: false
+      - name: Checkout exact autonomous m-os runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: b9d4a7a89c57b55e699e41d273b91398b2b39635
+          path: m-source
+          persist-credentials: false
+      - name: Checkout exact permanent test suite
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/rumiai-tests
+          ref: 63e01338667f76c519686128f6608d8f7c52dd67
+          path: tests
+          persist-credentials: false
+      - name: Prepare exact catalog and run permanent public-path test
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C catalog rev-parse HEAD)" = "${{ inputs.catalog_sha }}"
+          test "$(git -C m-source rev-parse HEAD)" = b9d4a7a89c57b55e699e41d273b91398b2b39635
+          test "$(git -C tests rev-parse HEAD)" = 63e01338667f76c519686128f6608d8f7c52dd67
+          ./m-source/m osarch update
+          conf=$(./m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$PWD/catalog" > "$conf/catalog"
+          export RUMIAI_TEST_M_OS_ROOT="$PWD/m-source"
+          export RUMIAI_TEST_PKG_CATALOG_ROOT="$PWD/catalog"
+          export RUMIAI_TEST_CATALOG_REPORT_DIR="$PWD/catalog-verification"
+          export RUMIAI_TEST_EXPECT_OSARCH="${{ inputs.expected_osarch }}"
+          export RUMIAI_TEST_EXPECT_CATALOG_SHA="${{ inputs.catalog_sha }}"
+          export RUMIAI_TEST_EXPECT_M_OS_SHA=b9d4a7a89c57b55e699e41d273b91398b2b39635
+          ./tests/rumiai-test --list m-os/pkg-catalog-exhaustive
+          ./tests/rumiai-test m-os/pkg-catalog-exhaustive
+      - name: Preserve per-package results and failure logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: entire-v2-catalog-${{ inputs.expected_osarch }}
+          path: catalog-verification/
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,55 @@
+name: Verify entire v2 catalog in strict host order
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/validate-v2-entire-catalog.yml'
+      - '.github/workflows/validate-v2-catalog-host.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: entire-v2-catalog-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ubuntu_x64:
+    name: 1 - Ubuntu x64
+    uses: ./.github/workflows/validate-v2-catalog-host.yml
+    with:
+      runner_label: ubuntu-24.04
+      expected_osarch: linux-x86_64
+      catalog_sha: ${{ github.sha }}
+
+  macos_arm64:
+    name: 2 - macOS ARM64
+    needs: ubuntu_x64
+    if: ${{ always() }}
+    uses: ./.github/workflows/validate-v2-catalog-host.yml
+    with:
+      runner_label: macos-15
+      expected_osarch: macos-arm64
+      catalog_sha: ${{ github.sha }}
+
+  windows_x64:
+    name: 3 - Windows x64
+    needs: macos_arm64
+    if: ${{ always() }}
+    uses: ./.github/workflows/validate-v2-catalog-host.yml
+    with:
+      runner_label: windows-2025
+      expected_osarch: windows-x86_64
+      catalog_sha: ${{ github.sha }}
+
+  ubuntu_arm64:
+    name: 4 - Ubuntu ARM64
+    needs: windows_x64
+    if: ${{ always() }}
+    uses: ./.github/workflows/validate-v2-catalog-host.yml
+    with:
+      runner_label: ubuntu-24.04-arm
+      expected_osarch: linux-arm64
+      catalog_sha: ${{ github.sha }}
