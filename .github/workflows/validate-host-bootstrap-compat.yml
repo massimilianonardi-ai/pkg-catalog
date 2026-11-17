@@ -17,14 +17,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 71309c8f575025ef6b5d44596fff94e4731e44a5
+          ref: c970a21b15d16ae05571304ddbd5b9e3a0093680
           path: m-source
           persist-credentials: false
       - name: Confirm macOS uses portable chmod and resolves the real runtime
         shell: bash
         run: |
           set -eu
-          test "$(git -C m-source rev-parse HEAD)" = 71309c8f575025ef6b5d44596fff94e4731e44a5
+          test "$(git -C m-source rev-parse HEAD)" = c970a21b15d16ae05571304ddbd5b9e3a0093680
           grep -F 'chmod 777 "$pkg_install_tmp_root"' m-source/lib/sys/sh/pkg/pkg-install.lib.sh
           grep -F 'chmod 777 "$pkg_install_cache_root"' m-source/lib/sys/sh/pkg/pkg-install.lib.sh
           ./m-source/m osarch update
@@ -38,26 +38,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: massimilianonardi-ai/m-os
-          ref: 71309c8f575025ef6b5d44596fff94e4731e44a5
+          ref: c970a21b15d16ae05571304ddbd5b9e3a0093680
           path: m-source
           persist-credentials: false
-      - name: Diagnose exact inventory checkout and Windows bootstrap
+      - name: Verify LF inventory and real Windows bootstrap
         shell: bash
         run: |
-          set -u
-          echo '== Host and Git checkout =='
-          uname -a
-          id -u
-          git -C m-source config --get core.autocrlf || :
-          git -C m-source config --get core.symlinks || :
-          for p in m-source m-source/state m-source/state/system m-source/state/system/profile m-source/state/system/profile/main m-source/state/system/profile/.inventory
-          do
-            ls -ldn "$p" || :
-          done
-          echo '== Inventory Git bytes =='
-          git -C m-source show HEAD:state/system/profile/.inventory | od -An -tx1
-          echo '== Inventory working tree bytes =='
-          od -An -tx1 m-source/state/system/profile/.inventory || :
-          echo '== Current Windows bootstrap =='
+          set -euo pipefail
+          test "$(git -C m-source rev-parse HEAD)" = c970a21b15d16ae05571304ddbd5b9e3a0093680
+          test "$(git -C m-source check-attr eol -- state/system/profile/.inventory)" = 'state/system/profile/.inventory: eol: lf'
+          git -C m-source show HEAD:state/system/profile/.inventory |
+            cmp - m-source/state/system/profile/.inventory
           ./m-source/m osarch update
-          exit $?
+          ./m-source/m sh -c 'test "$m_OSARCH" = windows-x86_64'
+          echo 'PASS: exact LF profile inventory and real Git Bash m bootstrap'
