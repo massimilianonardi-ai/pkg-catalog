@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: host-bootstrap-compat-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   macos:
     runs-on: macos-15
@@ -20,7 +24,11 @@ jobs:
           ref: c970a21b15d16ae05571304ddbd5b9e3a0093680
           path: m-source
           persist-credentials: false
-      - name: Confirm macOS uses portable chmod and resolves the real runtime
+      - uses: actions/checkout@v4
+        with:
+          path: catalog
+          persist-credentials: false
+      - name: Confirm macOS pkg install initialization uses portable chmod
         shell: bash
         run: |
           set -eu
@@ -29,6 +37,18 @@ jobs:
           grep -F 'chmod 777 "$pkg_install_cache_root"' m-source/lib/sys/sh/pkg/pkg-install.lib.sh
           ./m-source/m osarch update
           ./m-source/m sh -c 'printf "BOOTSTRAP_OK osarch=%s\n" "$m_OSARCH"'
+          git -C catalog switch -c ci-catalog-smoke
+          conf=$(./m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$PWD/catalog" > "$conf/catalog"
+          if ./m-source/m pkg install ci-nonexistent-package@1.0.0 > install.out 2> install.err
+          then
+            echo 'unexpected installation success' >&2
+            exit 1
+          fi
+          ! grep -F 'pkg-install.initialization-failed' install.err
+          grep -F 'pkg-install.root-resolution-failed' install.err
+          echo 'PASS: macOS public pkg install reached catalog resolution'
 
   windows:
     needs: macos
@@ -41,7 +61,11 @@ jobs:
           ref: c970a21b15d16ae05571304ddbd5b9e3a0093680
           path: m-source
           persist-credentials: false
-      - name: Verify LF inventory and real Windows bootstrap
+      - uses: actions/checkout@v4
+        with:
+          path: catalog
+          persist-credentials: false
+      - name: Verify LF inventory, bootstrap and pkg install initialization on Windows
         shell: bash
         run: |
           set -euo pipefail
@@ -52,3 +76,15 @@ jobs:
           ./m-source/m osarch update
           ./m-source/m sh -c 'test "$m_OSARCH" = windows-x86_64'
           echo 'PASS: exact LF profile inventory and real Git Bash m bootstrap'
+          git -C catalog switch -c ci-catalog-smoke
+          conf=$(./m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$PWD/catalog" > "$conf/catalog"
+          if ./m-source/m pkg install ci-nonexistent-package@1.0.0 > install.out 2> install.err
+          then
+            echo 'unexpected installation success' >&2
+            exit 1
+          fi
+          ! grep -F 'pkg-install.initialization-failed' install.err
+          grep -F 'pkg-install.root-resolution-failed' install.err
+          echo 'PASS: Windows public pkg install reached catalog resolution'
