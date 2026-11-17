@@ -1,0 +1,3 @@
+NODE_PATH="$pkg_launch_root/node_modules${NODE_PATH:+:$NODE_PATH}"
+PLAYWRIGHT_BROWSERS_PATH="$HOME/.cache/ms-playwright"
+export NODE_PATH PLAYWRIGHT_BROWSERS_PATH
