@@ -1,0 +1,2 @@
+GEOSERVER_HOME="$pkg_launch_root"
+export GEOSERVER_HOME
