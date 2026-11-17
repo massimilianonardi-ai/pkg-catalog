@@ -1,0 +1,72 @@
+# Targeted rerun of the public install lifecycle following anonymous API 403 failures.
+# The other three hosts are intentionally NOT scheduled by this workflow.
+name: Retry complete v2 catalog on Ubuntu x64 only
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/retry-v2-catalog-ubuntu-x64.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: retry-v2-catalog-ubuntu-x64-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ubuntu_x64:
+    name: Ubuntu x64 - entire v2 package catalog
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - name: Checkout exact catalog snapshot
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: catalog
+          persist-credentials: false
+      - name: Checkout exact autonomous m-os runtime
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/m-os
+          ref: 3c0f5b8783fb8d319d5f4db23e902f77b7ddc924
+          path: m-source
+          persist-credentials: false
+      - name: Checkout exact permanent test suite with provider preparation
+        uses: actions/checkout@v4
+        with:
+          repository: massimilianonardi-ai/rumiai-tests
+          ref: 27d75089b731600ff8b16da6bd6c941e5b6028f2
+          path: tests
+          persist-credentials: false
+      - name: Execute real public pkg lifecycle on Ubuntu x64
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C catalog rev-parse HEAD)" = "${{ github.sha }}"
+          test "$(git -C m-source rev-parse HEAD)" = "3c0f5b8783fb8d319d5f4db23e902f77b7ddc924"
+          test "$(git -C tests rev-parse HEAD)" = "27d75089b731600ff8b16da6bd6c941e5b6028f2"
+          git -C catalog switch -c ci-ubuntu-x64-retry
+          ./m-source/m osarch update
+          conf=$(./m-source/m state-path system sys pkg conf)
+          mkdir -p -- "$conf"
+          printf '%s\n' "$PWD/catalog" > "$conf/catalog"
+          export RUMIAI_TEST_M_OS_ROOT="$PWD/m-source"
+          export RUMIAI_TEST_PKG_CATALOG_ROOT="$PWD/catalog"
+          export RUMIAI_TEST_CATALOG_REPORT_DIR="$PWD/catalog-verification"
+          export RUMIAI_TEST_EXPECT_OSARCH=linux-x86_64
+          export RUMIAI_TEST_EXPECT_CATALOG_SHA="${{ github.sha }}"
+          export RUMIAI_TEST_EXPECT_M_OS_SHA="3c0f5b8783fb8d319d5f4db23e902f77b7ddc924"
+          ./tests/rumiai-test --list m-os/pkg-catalog-exhaustive
+          ./tests/rumiai-test m-os/pkg-catalog-exhaustive
+      - name: Preserve per-package results and failure logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: v2-catalog-ubuntu-x64-retry
+          path: catalog-verification/
+          if-no-files-found: warn
+          retention-days: 14
